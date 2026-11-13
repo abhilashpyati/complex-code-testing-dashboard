@@ -26,7 +26,6 @@ def analyze(workspace_dir: str, code_path: str, code: str) -> Dict:
         python, "-m", "bandit",
         "-f", "json",
         "-o", report_path,
-        "-ll",   # only medium+ severity
         code_path,
     ]
     result = run_tool(cmd, workspace_dir)

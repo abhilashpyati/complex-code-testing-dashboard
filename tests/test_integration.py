@@ -531,3 +531,116 @@ class TestAPIValidation:
         assert 'methodology_note' in pred
         assert 'heuristic' in pred['methodology_note'].lower() or \
                'HEURISTIC' in pred['methodology_note']
+
+
+# ═══════════════════════════════════════════════════════════════
+# ADDITIONAL AUDIT TEST CASES (Part 3 scenarios & Security)
+# ═══════════════════════════════════════════════════════════════
+
+class TestLogicalErrors:
+    """Scenario 3: Python code containing logical errors."""
+    def test_logical_error_analysis(self, client):
+        code = '''
+def calculate_average(numbers):
+    # Bug: dividing by fixed 2 instead of len(numbers)
+    return sum(numbers) / 2
+
+def is_positive(num):
+    # Bug: incorrect sign logic
+    return num < 0
+'''
+        resp = post_analyze(client, code, 'logic_test.py')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data['all_criteria']) == 25
+        assert 'analysis_id' in data
+
+
+class TestUndefinedVariables:
+    """Scenario 6: Python code with undefined variables."""
+    def test_undefined_variable_detected(self, client):
+        code = '''
+def process_data(val):
+    result = val + undefined_variable_xyz
+    return result
+'''
+        resp = post_analyze(client, code, 'undefined_test.py')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        flake8_crit = data.get('criteria', {}).get('flake8', [])
+        # FL-02 checks for undefined variables (F821)
+        f821_crit = next((c for c in flake8_crit if c['id'] == 'FL-02'), None)
+        assert f821_crit is not None
+        assert f821_crit['status'] in ('FAILED', 'WARNING')
+
+
+class TestDifferentFilenames:
+    """Scenario 13: Files with different valid filenames."""
+    def test_valid_custom_filenames(self, client):
+        valid_names = [
+            'math_utils.py',
+            'data-processor_v2.py',
+            'algorithm_123.py',
+            'my_service.py',
+        ]
+        for fname in valid_names:
+            resp = post_analyze(client, VALID_CODE, filename=fname)
+            assert resp.status_code == 200, f"Failed for valid filename: {fname}"
+            data = resp.get_json()
+            assert data.get('filename') == fname
+
+
+class TestRuntimeExceptions:
+    """Scenario 14: Code that causes runtime exceptions."""
+    def test_runtime_zero_division(self, client):
+        code = '''
+def divide_by_zero():
+    return 10 / 0
+
+def bad_index():
+    lst = []
+    return lst[5]
+'''
+        resp = post_analyze(client, code, 'runtime_err.py')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert len(data['all_criteria']) == 25
+
+
+class TestHTMLEscapingInReports:
+    """Security audit: verify HTML special characters in code/messages are safely escaped."""
+    def test_special_chars_escaped_in_report(self, client):
+        xss_code = '''
+def test_xss():
+    """<script>alert('XSS')</script>"""
+    msg = "<img src=x onerror=alert('xss')>"
+    return msg
+'''
+        resp = post_analyze(client, xss_code, 'xss_test.py')
+        assert resp.status_code == 200
+        analysis_id = resp.get_json()['analysis_id']
+
+        report_resp = client.get(f'/api/report/{analysis_id}?format=html')
+        assert report_resp.status_code == 200
+        body = report_resp.data.decode()
+        # Raw dangerous script tags should NOT appear unescaped
+        assert '<script>alert(' not in body
+        assert '<img src=x onerror=' not in body
+        # Instead, escaped entities or safe rendering should be present
+        assert 'xss_test.py' in body
+
+
+class TestBanditSeverityAndClassification:
+    """Audit: Bandit classifies findings by severity/confidence and reports them without false negatives."""
+    def test_bandit_finds_vulnerabilities(self, client):
+        resp = post_analyze(client, SECURITY_VULN_CODE, 'security_audit.py')
+        assert resp.status_code == 200
+        data = resp.get_json()
+        bandit_findings = data.get('findings', {}).get('bandit', [])
+        assert len(bandit_findings) > 0, "Bandit should detect issues in SECURITY_VULN_CODE"
+        for f in bandit_findings:
+            assert 'severity' in f
+            assert 'confidence' in f
+            assert f['severity'] in ('LOW', 'MEDIUM', 'HIGH')
+            assert f['confidence'] in ('LOW', 'MEDIUM', 'HIGH')
+

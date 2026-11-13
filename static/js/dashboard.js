@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function initEditor() {
   editor = CodeMirror.fromTextArea(document.getElementById('codeInput'), {
     mode: 'python',
-    theme: 'dracula',
+    theme: 'default',
     lineNumbers: true,
     indentUnit: 4,
     tabSize: 4,
@@ -218,9 +218,9 @@ function renderHealthScore(data) {
   ring.style.strokeDashoffset = offset;
 
   let color, labelText;
-  if (score >= 70) { color = '#22c55e'; labelText = 'Good Quality'; }
-  else if (score >= 40) { color = '#f59e0b'; labelText = 'Needs Improvement'; }
-  else { color = '#ef4444'; labelText = 'Poor Quality'; }
+  if (score >= 70) { color = '#16a34a'; labelText = 'Good Quality'; }
+  else if (score >= 40) { color = '#d97706'; labelText = 'Needs Improvement'; }
+  else { color = '#dc2626'; labelText = 'Poor Quality'; }
 
   ring.style.stroke = color;
   el.style.color = color;
@@ -269,26 +269,30 @@ function renderCharts(data) {
     data: {
       labels: ['Test Pass Rate', 'Statement Coverage', 'Branch Coverage', 'Security', 'Static Quality', 'Complexity'],
       datasets: [{
-        label: 'Code Quality',
+        label: 'Code Quality Score',
         data: [passRate, stmtCov, branchCov, noSecurity, noStatic, complexScore],
-        backgroundColor: 'rgba(59,130,246,.15)',
-        borderColor: '#3b82f6',
-        pointBackgroundColor: '#3b82f6',
-        pointBorderColor: '#fff',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#3b82f6',
+        backgroundColor: 'rgba(37,99,235,.12)',
+        borderColor: '#2563eb',
+        pointBackgroundColor: '#2563eb',
+        pointBorderColor: '#ffffff',
+        pointHoverBackgroundColor: '#ffffff',
+        pointHoverBorderColor: '#2563eb',
         borderWidth: 2,
+        pointRadius: 4,
       }],
     },
     options: {
       responsive: true,
-      plugins: { legend: { labels: { color: '#94a3b8', font: { family: 'Inter' } } } },
+      plugins: {
+        legend: { labels: { color: '#334155', font: { family: 'Inter', size: 12, weight: 600 } } }
+      },
       scales: {
         r: {
           min: 0, max: 100,
-          ticks: { color: '#475569', backdropColor: 'transparent', stepSize: 20 },
-          grid: { color: 'rgba(255,255,255,.07)' },
-          pointLabels: { color: '#94a3b8', font: { size: 11, family: 'Inter' } },
+          ticks: { color: '#64748b', backdropColor: 'transparent', stepSize: 20 },
+          grid: { color: '#e2e8f0' },
+          angleLines: { color: '#e2e8f0' },
+          pointLabels: { color: '#1e293b', font: { size: 11, family: 'Inter', weight: 600 } },
         },
       },
     },
@@ -302,8 +306,8 @@ function renderCharts(data) {
       labels: ['Passed', 'Warning', 'Failed', 'Not Executed'],
       datasets: [{
         data: [s.PASSED || 0, s.WARNING || 0, s.FAILED || 0, s.NOT_EXECUTED || 0],
-        backgroundColor: ['#22c55e', '#f59e0b', '#ef4444', '#475569'],
-        borderColor: '#16213e',
+        backgroundColor: ['#16a34a', '#d97706', '#dc2626', '#64748b'],
+        borderColor: '#ffffff',
         borderWidth: 3,
         hoverOffset: 6,
       }],
@@ -314,7 +318,7 @@ function renderCharts(data) {
       plugins: {
         legend: {
           position: 'bottom',
-          labels: { color: '#94a3b8', padding: 12, font: { family: 'Inter', size: 11 } },
+          labels: { color: '#334155', padding: 14, font: { family: 'Inter', size: 11, weight: 600 } },
         },
       },
     },
@@ -329,8 +333,8 @@ function renderCharts(data) {
       datasets: [{
         label: '%',
         data: [stmtCov, branchCov],
-        backgroundColor: ['rgba(6,182,212,.7)', 'rgba(139,92,246,.7)'],
-        borderColor: ['#06b6d4', '#8b5cf6'],
+        backgroundColor: ['rgba(37,99,235,.8)', 'rgba(2,132,199,.8)'],
+        borderColor: ['#2563eb', '#0284c7'],
         borderWidth: 1,
         borderRadius: 6,
       }],
@@ -339,8 +343,8 @@ function renderCharts(data) {
       responsive: true,
       indexAxis: 'y',
       scales: {
-        x: { max: 100, ticks: { color: '#475569', callback: v => v + '%' }, grid: { color: 'rgba(255,255,255,.05)' } },
-        y: { ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }, grid: { display: false } },
+        x: { max: 100, ticks: { color: '#64748b', callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+        y: { ticks: { color: '#334155', font: { family: 'Inter', size: 11, weight: 600 } }, grid: { display: false } },
       },
       plugins: { legend: { display: false } },
     },
@@ -356,15 +360,15 @@ function renderCharts(data) {
       datasets: [{
         label: 'Functions',
         data: [dist.LOW || 0, dist.MODERATE || 0, dist.HIGH || 0, dist.CRITICAL || 0],
-        backgroundColor: ['rgba(34,197,94,.7)', 'rgba(245,158,11,.7)', 'rgba(249,115,22,.7)', 'rgba(239,68,68,.7)'],
+        backgroundColor: ['rgba(22,163,74,.8)', 'rgba(217,119,6,.8)', 'rgba(234,88,12,.8)', 'rgba(220,38,38,.8)'],
         borderRadius: 5,
       }],
     },
     options: {
       responsive: true,
       scales: {
-        x: { ticks: { color: '#475569', font: { size: 10, family: 'Inter' } }, grid: { display: false } },
-        y: { ticks: { color: '#475569', precision: 0 }, grid: { color: 'rgba(255,255,255,.05)' } },
+        x: { ticks: { color: '#334155', font: { size: 10, family: 'Inter', weight: 600 } }, grid: { display: false } },
+        y: { ticks: { color: '#64748b', precision: 0 }, grid: { color: '#f1f5f9' } },
       },
       plugins: { legend: { display: false } },
     },
@@ -638,8 +642,8 @@ function renderDefectPrediction(data) {
       ${compRows}
     </div>
     ${recs.length ? `<div class="text-muted small mb-2 fw-600">Recommendations</div><ul class="ps-3">${recsHtml}</ul>` : ''}
-    <div class="alert-inline alert-methodology mt-3" style="background:rgba(245,158,11,.08);border-left:3px solid #f59e0b;padding:.6rem .9rem;border-radius:0 6px 6px 0;font-size:.75rem;color:#94a3b8">
-      ⚠️ <strong>Methodology:</strong> ${escHtml(methodology.substring(0, 250))}…
+    <div class="alert-inline alert-methodology mt-3">
+      <strong>Methodology:</strong> ${escHtml(methodology.substring(0, 250))}…
     </div>
   `;
 }
@@ -711,8 +715,19 @@ function setAnalyzeBtn(enabled) {
 
 function setNavStatus(msg, type) {
   const el = document.getElementById('analysisStatus');
-  el.textContent = msg;
-  el.style.color = type === 'done' ? '#22c55e' : type === 'analysing' ? '#f59e0b' : '';
+  const dot = document.getElementById('statusDot');
+  if (el) {
+    el.textContent = msg;
+    el.style.color = type === 'done' ? '#16a34a' : type === 'analysing' ? '#d97706' : '#334155';
+  }
+  if (dot) {
+    if (type === 'analysing') {
+      dot.className = 'status-dot busy';
+    } else {
+      dot.className = 'status-dot';
+      dot.style.background = type === 'done' ? '#16a34a' : '#16a34a';
+    }
+  }
 }
 
 const LOADING_STEPS = ['pytest', 'coverage', 'static', 'bandit', 'style', 'complexity', 'predict'];
@@ -774,6 +789,6 @@ function truncate(str, len) {
 }
 
 function riskColor(risk) {
-  const map = { LOW: '#22c55e', MODERATE: '#f59e0b', HIGH: '#f97316', CRITICAL: '#ef4444' };
-  return map[risk] || '#6b7280';
+  const map = { LOW: '#16a34a', MODERATE: '#d97706', HIGH: '#ea580c', CRITICAL: '#dc2626' };
+  return map[risk] || '#64748b';
 }

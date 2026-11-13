@@ -3,129 +3,195 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Complex Code Testing Dashboard | Software Quality Analysis</title>
+<title>Complex Code Testing Dashboard | Professional Code Quality Analysis</title>
 <meta name="description" content="Automated Python code quality analysis: PyTest, Coverage.py, Flake8, Pylint, Bandit, Pycodestyle, Radon — cyclomatic complexity and defect prediction.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
 <link rel="stylesheet" href="/static/css/dashboard.css">
 </head>
-<body>
+<body class="theme-white">
 
-<!-- ═══════════════════ NAV ═══════════════════ -->
-<nav class="navbar navbar-dark sticky-top" id="mainNav">
+<!-- ═══════════════════ NAVIGATION BAR ═══════════════════ -->
+<nav class="navbar sticky-top main-navbar" id="mainNav">
   <div class="container-fluid px-4">
     <a class="navbar-brand d-flex align-items-center gap-2" href="#">
-      <div class="brand-icon"><i class="bi bi-code-square"></i></div>
-      <span class="brand-text">CodeTestDash</span>
+      <div class="brand-icon">
+        <i class="bi bi-shield-check"></i>
+      </div>
+      <div class="d-flex flex-column">
+        <span class="brand-text">CodeTestDash</span>
+        <span class="brand-subtext">Automated Python Testing & Quality Assurance</span>
+      </div>
     </a>
     <div class="d-flex align-items-center gap-3">
-      <span class="nav-badge" id="analysisStatus">Ready</span>
-      <button class="btn btn-outline-light btn-sm" onclick="scrollToSection('inputSection')">
-        <i class="bi bi-plus-circle me-1"></i>Analyze
+      <div class="nav-status-badge d-flex align-items-center gap-2">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="nav-badge-text" id="analysisStatus">Ready</span>
+      </div>
+      <button class="btn btn-primary btn-sm btn-nav-action" onclick="scrollToSection('inputSection')">
+        <i class="bi bi-play-fill me-1"></i>New Analysis
       </button>
     </div>
   </div>
 </nav>
 
-<!-- ═══════════════════ HERO ═══════════════════ -->
+<!-- ═══════════════════ HERO HEADER ═══════════════════ -->
 <section class="hero-section">
-  <div class="container text-center py-5">
-    <div class="hero-badge mb-3"><i class="bi bi-shield-check me-2"></i>7th Semester Software Testing Project</div>
+  <div class="container text-center py-4 py-md-5">
+    <div class="hero-badge mb-3">
+      <i class="bi bi-mortarboard-fill me-2 text-primary"></i>7th Semester Software Testing Coursework Project
+    </div>
     <h1 class="hero-title">Complex Code Testing Dashboard</h1>
-    <p class="hero-subtitle">Automated Python quality analysis with PyTest · Coverage.py · Flake8 · Pylint · Bandit · Pycodestyle · Radon</p>
-    <div class="hero-tools mt-4 d-flex flex-wrap justify-content-center gap-2">
-      <span class="tool-pill">PyTest</span>
-      <span class="tool-pill">Coverage.py</span>
-      <span class="tool-pill">Flake8</span>
-      <span class="tool-pill">Pylint</span>
-      <span class="tool-pill">Bandit</span>
-      <span class="tool-pill">Pycodestyle</span>
-      <span class="tool-pill">Radon</span>
+    <p class="hero-subtitle">
+      Automated multi-tool quality verification for Python code — integrating Dynamic Testing, Code Coverage, Static Code Analysis, Security Auditing, PEP 8 Standards, and Cyclomatic Complexity.
+    </p>
+    <div class="hero-tools mt-3 d-flex flex-wrap justify-content-center gap-2">
+      <span class="tool-pill"><i class="bi bi-play-circle me-1 text-primary"></i>PyTest</span>
+      <span class="tool-pill"><i class="bi bi-graph-up me-1 text-primary"></i>Coverage.py</span>
+      <span class="tool-pill"><i class="bi bi-search me-1 text-primary"></i>Flake8</span>
+      <span class="tool-pill"><i class="bi bi-clipboard-check me-1 text-primary"></i>Pylint</span>
+      <span class="tool-pill"><i class="bi bi-shield-lock me-1 text-primary"></i>Bandit</span>
+      <span class="tool-pill"><i class="bi bi-file-code me-1 text-primary"></i>Pycodestyle</span>
+      <span class="tool-pill"><i class="bi bi-diagram-3 me-1 text-primary"></i>Radon</span>
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════ INPUT SECTION ═══════════════════ -->
+<!-- ═══════════════════ INPUT & CONFIGURATION SECTION ═══════════════════ -->
 <section class="container-fluid px-4 mt-4" id="inputSection">
   <div class="row g-4">
 
-    <!-- Code Editor Card -->
+    <!-- Source Code Editor Card -->
     <div class="col-lg-8">
-      <div class="card-modern">
+      <div class="card-modern shadow-sm">
         <div class="card-header-modern d-flex align-items-center justify-content-between">
           <div class="d-flex align-items-center gap-2">
-            <i class="bi bi-code-slash text-primary"></i>
-            <span class="fw-600">Source Code Editor</span>
+            <span class="header-icon-box bg-primary-soft text-primary">
+              <i class="bi bi-code-slash"></i>
+            </span>
+            <div>
+              <span class="fw-600 d-block text-dark">Source Code Editor</span>
+              <span class="text-muted small">Input Python code or select a sample program</span>
+            </div>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <span class="text-muted small" id="lineCount">0 lines</span>
-            <button class="btn btn-sm btn-ghost" onclick="clearEditor()" title="Clear editor">
-              <i class="bi bi-trash3"></i>
+            <span class="badge bg-light text-secondary border" id="lineCount">0 lines</span>
+            <button class="btn btn-sm btn-ghost text-muted" onclick="clearEditor()" title="Clear editor content">
+              <i class="bi bi-trash3 me-1"></i>Clear
             </button>
           </div>
         </div>
         <div class="card-body p-0">
-          <!-- Syntax error alert -->
+          <!-- Syntax / validation alert message -->
           <div id="syntaxAlert" class="alert-inline alert-danger d-none">
             <i class="bi bi-exclamation-triangle-fill me-2"></i>
             <span id="syntaxMessage"></span>
           </div>
-          <!-- CodeMirror editor -->
+          <!-- Code editor area -->
           <div id="editorContainer">
-            <textarea id="codeInput" placeholder="# Paste your Python code here..."></textarea>
+            <textarea id="codeInput" placeholder="# Paste or type your Python source code here..."></textarea>
           </div>
         </div>
         <div class="card-footer-modern d-flex align-items-center justify-content-between flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
-            <label for="fileUpload" class="btn btn-sm btn-outline-secondary">
-              <i class="bi bi-upload me-1"></i>Upload .py
+            <label for="fileUpload" class="btn btn-sm btn-outline-secondary btn-upload">
+              <i class="bi bi-upload me-1 text-primary"></i>Upload .py File
             </label>
             <input type="file" id="fileUpload" accept=".py" class="d-none">
-            <span class="text-muted small" id="uploadedFilename"></span>
+            <span class="text-secondary small fw-500" id="uploadedFilename"></span>
           </div>
           <button class="btn btn-primary btn-analyze" id="analyzeBtn" onclick="analyzeCode()">
-            <i class="bi bi-play-circle-fill me-2"></i>Run Analysis
+            <i class="bi bi-play-circle-fill me-2"></i>Run Full Analysis
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Samples + Info Panel -->
+    <!-- Samples & Analysis Modules Side Panel -->
     <div class="col-lg-4">
-      <!-- Sample Programs -->
-      <div class="card-modern mb-4">
+      <!-- Sample Programs Card -->
+      <div class="card-modern shadow-sm mb-4">
         <div class="card-header-modern">
-          <i class="bi bi-collection me-2 text-primary"></i>
-          <span class="fw-600">Sample Programs</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="header-icon-box bg-primary-soft text-primary">
+              <i class="bi bi-collection"></i>
+            </span>
+            <span class="fw-600 text-dark">Preloaded Sample Programs</span>
+          </div>
         </div>
         <div class="card-body">
           <div class="sample-grid" id="sampleGrid">
-            <div class="sample-card loading-skeleton" style="height:70px"></div>
-            <div class="sample-card loading-skeleton" style="height:70px"></div>
-            <div class="sample-card loading-skeleton" style="height:70px"></div>
+            <div class="sample-card loading-skeleton" style="height:65px"></div>
+            <div class="sample-card loading-skeleton" style="height:65px"></div>
+            <div class="sample-card loading-skeleton" style="height:65px"></div>
           </div>
         </div>
       </div>
 
-      <!-- Analysis Modules Info -->
-      <div class="card-modern">
+      <!-- Analysis Modules Overview Card -->
+      <div class="card-modern shadow-sm">
         <div class="card-header-modern">
-          <i class="bi bi-info-circle me-2 text-primary"></i>
-          <span class="fw-600">Analysis Modules</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="header-icon-box bg-primary-soft text-primary">
+              <i class="bi bi-check-all"></i>
+            </span>
+            <span class="fw-600 text-dark">Configured Analyzers</span>
+          </div>
         </div>
         <div class="card-body p-0">
           <div class="module-list">
-            <div class="module-item"><span class="module-num">1</span><span>Dynamic Testing (PyTest)</span></div>
-            <div class="module-item"><span class="module-num">2</span><span>Coverage Analysis (Coverage.py)</span></div>
-            <div class="module-item"><span class="module-num">3</span><span>Static Analysis (Flake8 + Pylint)</span></div>
-            <div class="module-item"><span class="module-num">4</span><span>Security Scan (Bandit)</span></div>
-            <div class="module-item"><span class="module-num">5</span><span>Coding Standards (Pycodestyle)</span></div>
-            <div class="module-item"><span class="module-num">6</span><span>Complexity (Radon)</span></div>
-            <div class="module-item"><span class="module-num">7</span><span>Defect Prediction (Heuristic)</span></div>
+            <div class="module-item">
+              <span class="module-num">1</span>
+              <div>
+                <strong>Dynamic Testing</strong>
+                <span class="d-block text-muted small">PyTest execution & assertions</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">2</span>
+              <div>
+                <strong>Coverage Measurement</strong>
+                <span class="d-block text-muted small">Statement & branch tracking (Coverage.py)</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">3</span>
+              <div>
+                <strong>Static Code Smells</strong>
+                <span class="d-block text-muted small">Flake8 & Pylint linting</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">4</span>
+              <div>
+                <strong>Security Vulnerabilities</strong>
+                <span class="d-block text-muted small">Bandit AST security auditing</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">5</span>
+              <div>
+                <strong>Coding Standards</strong>
+                <span class="d-block text-muted small">PEP 8 compliance (Pycodestyle)</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">6</span>
+              <div>
+                <strong>Complexity & Maintainability</strong>
+                <span class="d-block text-muted small">McCabe Cyclomatic Complexity (Radon)</span>
+              </div>
+            </div>
+            <div class="module-item">
+              <span class="module-num">7</span>
+              <div>
+                <strong>Defect Risk Estimation</strong>
+                <span class="d-block text-muted small">5-factor heuristic risk scoring</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -133,50 +199,54 @@
   </div>
 </section>
 
-<!-- ═══════════════════ LOADING OVERLAY ═══════════════════ -->
+<!-- ═══════════════════ LOADING PROGRESS OVERLAY ═══════════════════ -->
 <div id="loadingOverlay" class="loading-overlay d-none">
-  <div class="loading-card">
+  <div class="loading-card shadow-lg">
     <div class="loading-spinner"></div>
-    <h3 class="mt-4 mb-2">Analysing Code…</h3>
-    <p class="text-muted mb-4">Running 7 analysis tools. This may take up to 30 seconds.</p>
+    <h3 class="mt-4 mb-2 text-dark fw-700">Analysing Code...</h3>
+    <p class="text-secondary mb-4 small">Executing all 7 testing and static analysis tools in an isolated workspace.</p>
     <div class="loading-steps" id="loadingSteps">
       <div class="loading-step" data-step="pytest"><i class="bi bi-clock me-2"></i>PyTest — Dynamic Testing</div>
       <div class="loading-step" data-step="coverage"><i class="bi bi-clock me-2"></i>Coverage.py — Code Coverage</div>
-      <div class="loading-step" data-step="static"><i class="bi bi-clock me-2"></i>Flake8 + Pylint — Static Analysis</div>
+      <div class="loading-step" data-step="static"><i class="bi bi-clock me-2"></i>Flake8 + Pylint — Static Quality</div>
       <div class="loading-step" data-step="bandit"><i class="bi bi-clock me-2"></i>Bandit — Security Scan</div>
-      <div class="loading-step" data-step="style"><i class="bi bi-clock me-2"></i>Pycodestyle — Standards Check</div>
-      <div class="loading-step" data-step="complexity"><i class="bi bi-clock me-2"></i>Radon — Complexity Analysis</div>
+      <div class="loading-step" data-step="style"><i class="bi bi-clock me-2"></i>Pycodestyle — PEP 8 Standards</div>
+      <div class="loading-step" data-step="complexity"><i class="bi bi-clock me-2"></i>Radon — Cyclomatic Complexity</div>
       <div class="loading-step" data-step="predict"><i class="bi bi-clock me-2"></i>Defect Risk Prediction</div>
     </div>
   </div>
 </div>
 
-<!-- ═══════════════════ RESULTS SECTION (hidden until analysis) ═══════════════════ -->
+<!-- ═══════════════════ RESULTS SECTION ═══════════════════ -->
 <section id="resultsSection" class="container-fluid px-4 mt-5 d-none">
 
-  <!-- Section Header -->
-  <div class="results-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+  <!-- Section Header & Export Actions -->
+  <div class="results-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4 p-3 bg-white border rounded shadow-sm">
     <div>
-      <h2 class="results-title mb-1">Analysis Results</h2>
-      <p class="text-muted mb-0 small">
-        File: <code id="resultFilename">—</code> &nbsp;|&nbsp;
-        <span id="resultTimestamp">—</span>
+      <div class="d-flex align-items-center gap-2">
+        <h2 class="results-title mb-0 text-dark">Analysis Results</h2>
+        <span class="badge bg-success-soft text-success border border-success-subtle">Completed</span>
+      </div>
+      <p class="text-secondary mb-0 small mt-1">
+        Target File: <code id="resultFilename" class="fw-600 text-primary bg-light px-2 py-1 rounded">—</code> &nbsp;|&nbsp;
+        Analyzed: <span id="resultTimestamp" class="text-dark fw-500">—</span>
       </p>
     </div>
     <div class="d-flex gap-2 flex-wrap">
       <button class="btn btn-outline-secondary btn-sm" id="downloadJsonBtn">
-        <i class="bi bi-filetype-json me-1"></i>Download JSON
+        <i class="bi bi-filetype-json me-1 text-primary"></i>Export JSON
       </button>
       <button class="btn btn-outline-primary btn-sm" id="downloadHtmlBtn">
-        <i class="bi bi-file-earmark-text me-1"></i>Download HTML Report
+        <i class="bi bi-file-earmark-arrow-down me-1"></i>Download HTML Report
       </button>
     </div>
   </div>
 
-  <!-- ── Health Score + Key Metrics ── -->
+  <!-- ── Health Score & High-Level Metrics ── -->
   <div class="row g-3 mb-4">
+    <!-- Health Score Gauge Card -->
     <div class="col-lg-3 col-md-6">
-      <div class="metric-card health-card">
+      <div class="metric-card health-card shadow-sm">
         <div class="metric-label">Overall Health Score</div>
         <div class="health-score-display" id="healthScoreDisplay">
           <svg class="health-ring" viewBox="0 0 120 120">
@@ -184,64 +254,66 @@
             <circle class="ring-progress" id="healthRing" cx="60" cy="60" r="50"
                     stroke-dasharray="314" stroke-dashoffset="314"></circle>
           </svg>
-          <div class="health-value" id="healthValue">—</div>
+          <div class="health-value text-dark" id="healthValue">—</div>
         </div>
         <div class="metric-sublabel" id="healthLabel">Waiting for analysis</div>
       </div>
     </div>
+
+    <!-- Mini Metric Cards Grid -->
     <div class="col-lg-9 col-md-6">
       <div class="row g-3 h-100">
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-check-circle-fill text-success metric-icon"></i>
             <div class="mini-value text-success" id="metricPassed">—</div>
-            <div class="mini-label">Passed</div>
+            <div class="mini-label">Criteria Passed</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
-            <i class="bi bi-exclamation-circle-fill text-warning metric-icon"></i>
+          <div class="metric-card mini-metric shadow-sm">
+            <i class="bi bi-exclamation-triangle-fill text-warning metric-icon"></i>
             <div class="mini-value text-warning" id="metricWarning">—</div>
-            <div class="mini-label">Warning</div>
+            <div class="mini-label">Warnings</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-x-circle-fill text-danger metric-icon"></i>
             <div class="mini-value text-danger" id="metricFailed">—</div>
             <div class="mini-label">Failed</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-dash-circle metric-icon text-secondary"></i>
             <div class="mini-value text-secondary" id="metricNotExec">—</div>
             <div class="mini-label">Not Executed</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
-            <i class="bi bi-graph-up text-info metric-icon"></i>
-            <div class="mini-value text-info" id="metricStmtCov">—</div>
-            <div class="mini-label">Stmt Coverage</div>
+          <div class="metric-card mini-metric shadow-sm">
+            <i class="bi bi-graph-up text-primary metric-icon"></i>
+            <div class="mini-value text-primary" id="metricStmtCov">—</div>
+            <div class="mini-label">Statement Cov</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-git text-info metric-icon"></i>
             <div class="mini-value text-info" id="metricBranchCov">—</div>
-            <div class="mini-label">Branch Coverage</div>
+            <div class="mini-label">Branch Cov</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-diagram-3 text-purple metric-icon"></i>
             <div class="mini-value text-purple" id="metricComplexity">—</div>
             <div class="mini-label">Avg Complexity</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
-          <div class="metric-card mini-metric">
+          <div class="metric-card mini-metric shadow-sm">
             <i class="bi bi-shield-exclamation text-orange metric-icon"></i>
             <div class="mini-value text-orange" id="metricRisk">—</div>
             <div class="mini-label">Defect Risk</div>
@@ -251,30 +323,41 @@
     </div>
   </div>
 
-  <!-- ── Charts Row ── -->
+  <!-- ── Visual Quality Charts Row ── -->
   <div class="row g-4 mb-4">
     <div class="col-lg-4">
-      <div class="card-modern h-100">
-        <div class="card-header-modern"><i class="bi bi-pentagon me-2 text-primary"></i>Quality Radar</div>
-        <div class="card-body d-flex align-items-center justify-content-center">
+      <div class="card-modern shadow-sm h-100">
+        <div class="card-header-modern">
+          <i class="bi bi-pentagon me-2 text-primary"></i>
+          <span class="fw-600 text-dark">Quality Radar</span>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center p-3">
           <canvas id="radarChart" width="300" height="300"></canvas>
         </div>
       </div>
     </div>
     <div class="col-lg-4">
-      <div class="card-modern h-100">
-        <div class="card-header-modern"><i class="bi bi-pie-chart me-2 text-primary"></i>Test Results Distribution</div>
-        <div class="card-body d-flex align-items-center justify-content-center">
+      <div class="card-modern shadow-sm h-100">
+        <div class="card-header-modern">
+          <i class="bi bi-pie-chart me-2 text-primary"></i>
+          <span class="fw-600 text-dark">Criteria Distribution</span>
+        </div>
+        <div class="card-body d-flex align-items-center justify-content-center p-3">
           <canvas id="doughnutChart" width="300" height="300"></canvas>
         </div>
       </div>
     </div>
     <div class="col-lg-4">
-      <div class="card-modern h-100">
-        <div class="card-header-modern"><i class="bi bi-bar-chart me-2 text-primary"></i>Coverage & Complexity</div>
-        <div class="card-body">
-          <canvas id="coverageChart" width="300" height="140"></canvas>
-          <div class="mt-3">
+      <div class="card-modern shadow-sm h-100">
+        <div class="card-header-modern">
+          <i class="bi bi-bar-chart me-2 text-primary"></i>
+          <span class="fw-600 text-dark">Coverage & Complexity Profiles</span>
+        </div>
+        <div class="card-body p-3">
+          <div class="chart-subtitle text-muted small fw-600 mb-2">Coverage Metrics (%)</div>
+          <canvas id="coverageChart" width="300" height="130"></canvas>
+          <div class="mt-4">
+            <div class="chart-subtitle text-muted small fw-600 mb-2">Complexity Distribution (Functions)</div>
             <canvas id="complexityDistChart" width="300" height="130"></canvas>
           </div>
         </div>
@@ -282,16 +365,24 @@
     </div>
   </div>
 
-  <!-- ── 25 Test Criteria ── -->
-  <div class="card-modern mb-4">
-    <div class="card-header-modern d-flex align-items-center justify-content-between">
-      <div><i class="bi bi-clipboard-check me-2 text-primary"></i><span class="fw-600">25 Test Criteria</span></div>
+  <!-- ── 25 Core Test Criteria Evaluation ── -->
+  <div class="card-modern shadow-sm mb-4">
+    <div class="card-header-modern d-flex align-items-center justify-content-between flex-wrap gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <span class="header-icon-box bg-primary-soft text-primary">
+          <i class="bi bi-clipboard-check"></i>
+        </span>
+        <div>
+          <span class="fw-600 text-dark d-block">25 Core Test Criteria</span>
+          <span class="text-muted small">5 criteria evaluated per tool across dynamic, coverage, static, and security modules</span>
+        </div>
+      </div>
       <div class="d-flex gap-2 flex-wrap">
         <button class="btn btn-xs filter-btn active" data-filter="all" onclick="filterCriteria('all', this)">All</button>
         <button class="btn btn-xs filter-btn" data-filter="PASSED" onclick="filterCriteria('PASSED', this)">Passed</button>
         <button class="btn btn-xs filter-btn" data-filter="WARNING" onclick="filterCriteria('WARNING', this)">Warning</button>
         <button class="btn btn-xs filter-btn" data-filter="FAILED" onclick="filterCriteria('FAILED', this)">Failed</button>
-        <button class="btn btn-xs filter-btn" data-filter="NOT_EXECUTED" onclick="filterCriteria('NOT_EXECUTED', this)">N/A</button>
+        <button class="btn btn-xs filter-btn" data-filter="NOT_EXECUTED" onclick="filterCriteria('NOT_EXECUTED', this)">Not Executed</button>
       </div>
     </div>
 
@@ -301,19 +392,23 @@
     </div>
   </div>
 
-  <!-- ── Bottom Row: Findings + Complexity + Risk ── -->
+  <!-- ── Bottom Row: Static Findings + Complexity + Defect Prediction ── -->
   <div class="row g-4 mb-4">
 
-    <!-- Static & Security Findings -->
+    <!-- Static & Security Findings Tabs -->
     <div class="col-lg-6">
-      <div class="card-modern h-100">
-        <div class="card-header-modern">
-          <i class="bi bi-bug me-2 text-primary"></i>
-          <span class="fw-600">Code Findings</span>
-          <span class="ms-2 badge-count" id="findingsCount">0</span>
+      <div class="card-modern shadow-sm h-100">
+        <div class="card-header-modern d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <span class="header-icon-box bg-primary-soft text-primary">
+              <i class="bi bi-bug"></i>
+            </span>
+            <span class="fw-600 text-dark">Code Findings & Linter Warnings</span>
+          </div>
+          <span class="badge bg-secondary-soft text-secondary border fw-600" id="findingsCount">0 issues</span>
         </div>
         <div class="card-body p-0">
-          <div class="findings-tabs d-flex border-bottom">
+          <div class="findings-tabs d-flex border-bottom bg-light">
             <button class="finding-tab active" data-tab="flake8" onclick="switchFindingTab('flake8', this)">Flake8</button>
             <button class="finding-tab" data-tab="pylint" onclick="switchFindingTab('pylint', this)">Pylint</button>
             <button class="finding-tab" data-tab="bandit" onclick="switchFindingTab('bandit', this)">Bandit</button>
@@ -324,17 +419,26 @@
       </div>
     </div>
 
-    <!-- Complexity + Defect Prediction -->
+    <!-- Complexity Hotspots + Defect Risk Prediction -->
     <div class="col-lg-6">
-      <div class="card-modern mb-3">
-        <div class="card-header-modern"><i class="bi bi-diagram-3 me-2 text-primary"></i>Cyclomatic Complexity</div>
+      <!-- Radon Complexity Card -->
+      <div class="card-modern shadow-sm mb-3">
+        <div class="card-header-modern">
+          <i class="bi bi-diagram-3 me-2 text-primary"></i>
+          <span class="fw-600 text-dark">Cyclomatic Complexity Hotspots</span>
+        </div>
         <div class="card-body">
           <div id="complexityContent"></div>
         </div>
       </div>
 
-      <div class="card-modern">
-        <div class="card-header-modern"><i class="bi bi-robot me-2 text-primary"></i>Defect Risk Prediction</div>
+      <!-- Defect Prediction Card -->
+      <div class="card-modern shadow-sm">
+        <div class="card-header-modern">
+          <i class="bi bi-robot me-2 text-primary"></i>
+          <span class="fw-600 text-dark">Defect Risk Prediction</span>
+          <span class="badge bg-light text-muted border ms-2">Heuristic</span>
+        </div>
         <div class="card-body">
           <div id="defectContent"></div>
         </div>
@@ -342,18 +446,23 @@
     </div>
   </div>
 
-  <!-- ── Security Findings Detail ── -->
-  <div class="card-modern mb-4" id="securityDetailCard">
-    <div class="card-header-modern"><i class="bi bi-shield-exclamation me-2 text-danger"></i>Security Findings Detail</div>
+  <!-- ── Security Findings Detail Section ── -->
+  <div class="card-modern shadow-sm mb-4" id="securityDetailCard">
+    <div class="card-header-modern">
+      <i class="bi bi-shield-exclamation me-2 text-danger"></i>
+      <span class="fw-600 text-dark">Detailed Security Findings (Bandit)</span>
+    </div>
     <div class="card-body p-0" id="securityDetail"></div>
   </div>
 
 </section>
 
 <!-- ═══════════════════ FOOTER ═══════════════════ -->
-<footer class="app-footer text-center mt-5 py-4">
-  <p class="mb-1 text-muted small">Complex Code Testing Dashboard &mdash; 7th Semester Software Testing Academic Project</p>
-  <p class="mb-0 text-muted small">Tools: PyTest · Coverage.py · Flake8 · Pylint · Bandit · Pycodestyle · Radon</p>
+<footer class="app-footer text-center py-4 mt-5">
+  <div class="container">
+    <p class="mb-1 text-dark fw-600 small">Complex Code Testing Dashboard &mdash; 7th Semester Software Testing Project</p>
+    <p class="mb-0 text-muted small">Automated Testing Tools: PyTest &middot; Coverage.py &middot; Flake8 &middot; Pylint &middot; Bandit &middot; Pycodestyle &middot; Radon</p>
+  </div>
 </footer>
 
 <!-- ═══════════════════ SCRIPTS ═══════════════════ -->
