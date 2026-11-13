@@ -146,6 +146,7 @@ async function analyzeCode() {
   showLoadingOverlay();
   setNavStatus('Analysing…', 'analysing');
 
+  let data = null;
   try {
     const response = await fetch('/api/analyze', {
       method: 'POST',
@@ -153,7 +154,7 @@ async function analyzeCode() {
       body: JSON.stringify({ code, filename }),
     });
 
-    const data = await response.json();
+    data = await response.json();
 
     if (!response.ok) {
       if (data.validation_errors) {
@@ -168,17 +169,22 @@ async function analyzeCode() {
       }
       return;
     }
-
-    currentResult = data;
-    currentAnalysisId = data.analysis_id;
-    renderResults(data);
-
   } catch (err) {
-    showSyntaxAlert('Network error: ' + err.message);
+    showSyntaxAlert('Network error: ' + err.message + '. Please ensure the backend server is running.');
+    return;
   } finally {
     hideLoadingOverlay();
     setAnalyzeBtn(true);
     setNavStatus('Done', 'done');
+  }
+
+  try {
+    currentResult = data;
+    currentAnalysisId = data.analysis_id;
+    renderResults(data);
+  } catch (renderErr) {
+    console.error('Results rendering error:', renderErr);
+    showSyntaxAlert('Results rendering error: ' + renderErr.message);
   }
 }
 

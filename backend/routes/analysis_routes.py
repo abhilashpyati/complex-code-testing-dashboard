@@ -20,8 +20,10 @@ def health_check():
     return jsonify({"status": "ok", "message": "Complex Code Testing Dashboard is running"})
 
 
-@analysis_bp.route("/analyze", methods=["POST"])
+@analysis_bp.route("/analyze", methods=["POST", "OPTIONS"])
 def analyze_code():
+    if request.method == "OPTIONS":
+        return "", 204
     """
     Analyse submitted Python source code.
 
@@ -108,8 +110,10 @@ def get_results(analysis_id: str):
     return jsonify(result)
 
 
-@analysis_bp.route("/samples", methods=["GET"])
+@analysis_bp.route("/samples", methods=["GET", "OPTIONS"])
 def get_samples():
+    if request.method == "OPTIONS":
+        return "", 204
     """Return available sample program names and their source code."""
     samples_dir = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))),

@@ -6,6 +6,7 @@ import uuid
 import threading
 import time
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from typing import Dict, Optional
 
@@ -83,13 +84,23 @@ def _execute_analysis(
     filename: str,
 ) -> Dict:
     # --- Run all analyzers ---
+    # Dynamic tests and coverage run first to generate coverage metrics
     pytest_result = pytest_analyzer.analyze(workspace_dir, code_path, code)
     coverage_result = coverage_analyzer.analyze(workspace_dir, code_path, code)
-    flake8_result = flake8_analyzer.analyze(workspace_dir, code_path, code)
-    pylint_result = pylint_analyzer.analyze(workspace_dir, code_path, code)
-    bandit_result = bandit_analyzer.analyze(workspace_dir, code_path, code)
-    pycodestyle_result = pycodestyle_analyzer.analyze(workspace_dir, code_path, code)
-    complexity_result = analyze_complexity(workspace_dir, code_path, code)
+
+    # Static analysis, linting, security scanning, and complexity run concurrently for speed
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        f_flake8 = executor.submit(flake8_analyzer.analyze, workspace_dir, code_path, code)
+        f_pylint = executor.submit(pylint_analyzer.analyze, workspace_dir, code_path, code)
+        f_bandit = executor.submit(bandit_analyzer.analyze, workspace_dir, code_path, code)
+        f_pycode = executor.submit(pycodestyle_analyzer.analyze, workspace_dir, code_path, code)
+        f_radon = executor.submit(analyze_complexity, workspace_dir, code_path, code)
+
+        flake8_result = f_flake8.result()
+        pylint_result = f_pylint.result()
+        bandit_result = f_bandit.result()
+        pycodestyle_result = f_pycode.result()
+        complexity_result = f_radon.result()
 
     # --- Collect all 25 criteria ---
     all_criteria = (
