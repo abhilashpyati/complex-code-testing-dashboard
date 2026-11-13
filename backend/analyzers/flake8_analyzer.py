@@ -3,10 +3,10 @@ Flake8 Analyzer — Module 4 (part 1): Static Code Analysis.
 
 Five criteria:
 1. No Unused Imports (F401)
-2. No Undefined Variables (F821)
+2. No Undefined Variables / Syntax Errors (F821/E999)
 3. No Wildcard Imports (F403/F405)
 4. No Bare Except Clauses (E722)
-5. No Redefined Built-ins (A001/W0622)
+5. No Ambiguous Variable Names or Redefined Symbols (E741/F811)
 """
 import os
 import re
@@ -104,9 +104,9 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
         "Remove unused import statements to keep the namespace clean",
     ))
     criteria.append(_criterion(
-        "FL-02", "No Undefined Variables (F821)",
-        ["F821", "F811"],
-        "Ensure all variables are defined before use",
+        "FL-02", "No Undefined Variables / Syntax Errors (F821/E999)",
+        ["F821", "E999", "E901", "E902"],
+        "Ensure all variables are defined before use and syntax is valid",
     ))
     criteria.append(_criterion(
         "FL-03", "No Wildcard Imports (F403/F405)",
@@ -119,39 +119,31 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
         "Use specific exception types instead of bare except",
     ))
 
-    # Criterion 5: Line-too-long (E501) or other style errors
+    # Criterion 5: Ambiguous variable names or redefinitions
     if tool_missing:
         criteria.append(make_criterion(
-            "FL-05", "No Redefined Built-ins / Name Errors",
+            "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
             "NOT_EXECUTED",
             f"Flake8 not available", TOOL,
         ))
     else:
-        matched = [f for f in findings if f["code"] in ("A001", "A002", "W0622", "E741")]
+        matched = [f for f in findings if f["code"] in ("E741", "F811", "A001", "A002", "W0622")]
         if not matched:
-            # Also check for shadowed builtins by name
-            builtins = {"list", "dict", "set", "type", "id", "input", "print", "open"}
-            import ast
-            try:
-                import ast as _ast
-                tree = None  # will be set below
-            except Exception:
-                pass
             criteria.append(make_criterion(
-                "FL-05", "No Redefined Built-ins / Ambiguous Names",
+                "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
                 "PASSED",
-                "No built-in shadowing or ambiguous names detected",
+                "No ambiguous variable names or symbol redefinitions detected",
                 TOOL,
-                recommendation="Avoid naming variables after Python built-ins",
+                recommendation="Avoid ambiguous single-letter names (l, O, I) and variable redefinitions",
             ))
         else:
             criteria.append(make_criterion(
-                "FL-05", "No Redefined Built-ins / Ambiguous Names",
+                "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
                 "WARNING",
-                f"{len(matched)} built-in shadowing(s): "
+                f"{len(matched)} ambiguous name / redefinition violation(s): "
                 + "; ".join(f"Line {f['line']}: {f['message']}" for f in matched[:3]),
                 TOOL,
-                recommendation="Rename variables that shadow Python built-ins",
+                recommendation="Rename ambiguous single-letter names and avoid redefining symbols",
             ))
 
     return criteria

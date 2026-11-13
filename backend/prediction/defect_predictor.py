@@ -2,12 +2,16 @@
 Defect Predictor — Module 8: Rule-Based Defect Risk Prediction.
 
 This is a HEURISTIC model, NOT a machine-learning probability.
-Score is calculated from weighted contributions of:
+Score is calculated from weighted contributions of available components:
   - Cyclomatic complexity    (25%)
   - Security findings        (30%)
   - Static analysis findings (20%)
   - Code coverage            (15%)
   - Style violations         (10%)
+
+If any component metric is unavailable (e.g. coverage could not be collected,
+Radon timed out, or branch coverage is not applicable), weights are dynamically
+re-normalized across available components to avoid unfair penalties.
 
 Risk Categories:
   LOW:      0–24
@@ -15,7 +19,7 @@ Risk Categories:
   HIGH:     50–74
   CRITICAL: 75–100
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from config import (
     RISK_WEIGHT_COMPLEXITY,
@@ -41,32 +45,30 @@ def predict(
     Returns a dict with: score, category, components, high_risk_functions,
     recommendations, methodology_note.
     """
-    # --- Component scores (each 0–100) ---
-
-    # 1. Complexity score
+    # --- Component scores (each 0–100 or None if unavailable) ---
     complexity_score = _complexity_score(complexity_data)
-
-    # 2. Security score
     security_score = _security_score(security_findings)
-
-    # 3. Static analysis score
     static_score = _static_score(static_findings)
-
-    # 4. Coverage score (inverted: low coverage = high risk)
     coverage_score = _coverage_score(coverage_metrics)
-
-    # 5. Style score
     style_score = _style_score(style_findings)
 
-    # --- Weighted aggregate ---
-    total_score = (
-        complexity_score * RISK_WEIGHT_COMPLEXITY
-        + security_score * RISK_WEIGHT_SECURITY
-        + static_score * RISK_WEIGHT_STATIC
-        + coverage_score * RISK_WEIGHT_COVERAGE
-        + style_score * RISK_WEIGHT_STYLE
-    )
-    total_score = round(min(100, max(0, total_score)), 1)
+    # Component definitions: (name, score, base_weight)
+    raw_components = [
+        ("complexity", complexity_score, RISK_WEIGHT_COMPLEXITY),
+        ("security", security_score, RISK_WEIGHT_SECURITY),
+        ("static_analysis", static_score, RISK_WEIGHT_STATIC),
+        ("coverage", coverage_score, RISK_WEIGHT_COVERAGE),
+        ("style", style_score, RISK_WEIGHT_STYLE),
+    ]
+
+    # Calculate available weights and normalize
+    available_weights = sum(w for _, s, w in raw_components if s is not None)
+    weighted_sum = sum(s * w for _, s, w in raw_components if s is not None)
+
+    if available_weights > 0:
+        total_score = round(min(100.0, max(0.0, weighted_sum / available_weights)), 1)
+    else:
+        total_score = 0.0
 
     # Risk category
     if total_score < 25:
@@ -77,6 +79,28 @@ def predict(
         category = "HIGH"
     else:
         category = "CRITICAL"
+
+    # Build components dictionary
+    components = {}
+    for name, s, w in raw_components:
+        if s is not None and available_weights > 0:
+            effective_weight = round(w / available_weights, 3)
+            contribution = round((s * w) / available_weights, 1)
+            components[name] = {
+                "score": round(s, 1),
+                "weight": w,
+                "effective_weight": effective_weight,
+                "contribution": contribution,
+                "status": "AVAILABLE",
+            }
+        else:
+            components[name] = {
+                "score": None,
+                "weight": w,
+                "effective_weight": 0.0,
+                "contribution": 0.0,
+                "status": "UNAVAILABLE",
+            }
 
     # High-risk functions
     high_risk_functions = _identify_high_risk_functions(complexity_data)
@@ -90,66 +114,44 @@ def predict(
     return {
         "score": total_score,
         "category": category,
-        "components": {
-            "complexity": {
-                "score": round(complexity_score, 1),
-                "weight": RISK_WEIGHT_COMPLEXITY,
-                "contribution": round(complexity_score * RISK_WEIGHT_COMPLEXITY, 1),
-            },
-            "security": {
-                "score": round(security_score, 1),
-                "weight": RISK_WEIGHT_SECURITY,
-                "contribution": round(security_score * RISK_WEIGHT_SECURITY, 1),
-            },
-            "static_analysis": {
-                "score": round(static_score, 1),
-                "weight": RISK_WEIGHT_STATIC,
-                "contribution": round(static_score * RISK_WEIGHT_STATIC, 1),
-            },
-            "coverage": {
-                "score": round(coverage_score, 1),
-                "weight": RISK_WEIGHT_COVERAGE,
-                "contribution": round(coverage_score * RISK_WEIGHT_COVERAGE, 1),
-            },
-            "style": {
-                "score": round(style_score, 1),
-                "weight": RISK_WEIGHT_STYLE,
-                "contribution": round(style_score * RISK_WEIGHT_STYLE, 1),
-            },
-        },
+        "components": components,
         "high_risk_functions": high_risk_functions,
         "recommendations": recommendations,
         "methodology_note": (
-            "This score is a HEURISTIC estimate, not a machine-learning probability. "
-            "It is computed from weighted contributions of cyclomatic complexity (25%), "
-            "security findings (30%), static analysis findings (20%), "
-            "code coverage deficit (15%), and style violations (10%). "
-            "Use this score as a starting point for code review prioritisation, "
-            "not as a definitive defect count."
+            "Defect risk is a heuristic estimate based on static analysis, complexity, "
+            "coverage, security, and style metrics. It does not guarantee the presence or "
+            "absence of defects, nor does it represent an empirical defect count. "
+            "Scores are normalized dynamically across all available components."
         ),
     }
 
 
-def _complexity_score(data: Dict) -> float:
-    """Higher complexity → higher risk score."""
+def _complexity_score(data: Dict) -> Optional[float]:
+    """Higher complexity → higher risk score. Returns None if complexity data unavailable."""
     overall = data.get("overall", {})
-    avg_complexity = overall.get("average", 0)
+    if overall.get("status") == "NOT_EXECUTED":
+        return None
+
+    avg_complexity = overall.get("average")
+    if avg_complexity is None:
+        return None
+
     dist = overall.get("distribution", {})
 
     # Base score from average complexity
     if avg_complexity <= 5:
-        base = avg_complexity * 4
+        base = avg_complexity * 4.0
     elif avg_complexity <= 12:
-        base = 20 + (avg_complexity - 5) * 7
+        base = 20.0 + (avg_complexity - 5.0) * 7.0
     elif avg_complexity <= 25:
-        base = 69 + (avg_complexity - 12) * 2
+        base = 69.0 + (avg_complexity - 12.0) * 2.0
     else:
-        base = 95
+        base = 95.0
 
     # Bonus for critical functions
     critical_count = dist.get("CRITICAL", 0)
     high_count = dist.get("HIGH", 0)
-    base = min(100, base + critical_count * 10 + high_count * 5)
+    base = min(100.0, base + critical_count * 10.0 + high_count * 5.0)
     return base
 
 
@@ -169,7 +171,7 @@ def _security_score(findings: List[Dict]) -> float:
             score += 5
         if conf == "HIGH":
             score += 5
-    return min(100, score)
+    return min(100.0, score)
 
 
 def _static_score(findings: List[Dict]) -> float:
@@ -178,20 +180,31 @@ def _static_score(findings: List[Dict]) -> float:
         return 0.0
     count = len(findings)
     if count <= 2:
-        return count * 10
+        return float(count * 10)
     elif count <= 10:
-        return 20 + (count - 2) * 7
+        return float(20 + (count - 2) * 7)
     else:
-        return min(100, 76 + (count - 10) * 2)
+        return min(100.0, float(76 + (count - 10) * 2))
 
 
-def _coverage_score(metrics: Dict) -> float:
-    """Low coverage = high risk. 100% coverage → 0 risk score."""
-    stmt_cov = metrics.get("statement_coverage", 0)
-    branch_cov = metrics.get("branch_coverage", 0)
-    # Average the two; invert
-    avg_cov = (stmt_cov + branch_cov) / 2
-    return max(0, 100 - avg_cov)
+def _coverage_score(metrics: Dict) -> Optional[float]:
+    """
+    Low coverage = high risk. 100% coverage → 0 risk score.
+    Returns None if statement coverage is unavailable/not executed.
+    If branch coverage is None (e.g. branchless code), evaluates statement coverage alone.
+    """
+    stmt_cov = metrics.get("statement_coverage")
+    branch_cov = metrics.get("branch_coverage")
+
+    if stmt_cov is None:
+        return None
+
+    if branch_cov is None:
+        avg_cov = float(stmt_cov)
+    else:
+        avg_cov = (float(stmt_cov) + float(branch_cov)) / 2.0
+
+    return max(0.0, min(100.0, 100.0 - avg_cov))
 
 
 def _style_score(findings: List[Dict]) -> float:
@@ -199,7 +212,7 @@ def _style_score(findings: List[Dict]) -> float:
     count = len(findings)
     if count == 0:
         return 0.0
-    return min(100, count * 3)
+    return min(100.0, float(count * 3))
 
 
 def _identify_high_risk_functions(data: Dict) -> List[Dict]:
@@ -222,12 +235,12 @@ def _generate_recommendations(
             "⚠️ HIGH SECURITY RISK: Address Bandit security findings immediately. "
             "Security vulnerabilities are weighted most heavily in the risk score."
         )
-    if complexity_score > 60:
+    if complexity_score is not None and complexity_score > 60:
         recs.append(
             "🔀 HIGH COMPLEXITY: Refactor functions with complexity > 12. "
             "High cyclomatic complexity directly increases the probability of latent defects."
         )
-    if coverage_score > 60:
+    if coverage_score is not None and coverage_score > 60:
         recs.append(
             "📊 LOW COVERAGE: Increase test coverage. "
             "Uncovered code paths are breeding grounds for undetected bugs."

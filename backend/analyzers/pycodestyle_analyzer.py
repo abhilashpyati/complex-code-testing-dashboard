@@ -6,7 +6,7 @@ Five criteria:
 2. Line Length Compliance (E501)
 3. Whitespace Compliance (E2xx)
 4. Blank Line Compliance (E3xx)
-5. Import Ordering Compliance (E4xx)
+5. Import / Statement Compliance (E4xx/W6xx)
 """
 import os
 import re

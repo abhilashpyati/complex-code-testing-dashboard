@@ -67,7 +67,7 @@ def analyze(workspace_dir: str, code_path: str, code: str) -> Dict:
     functions = _parse_cc(cc_result)
     mi_data = _parse_mi(mi_result)
 
-    overall = _calculate_overall(functions)
+    overall = _calculate_overall(functions, cc_result)
     recommendations = _generate_recommendations(functions)
 
     return {
@@ -127,16 +127,33 @@ def _parse_mi(result: Dict) -> Dict:
     return mi_data
 
 
-def _calculate_overall(functions: List[Dict]) -> Dict:
+def _calculate_overall(functions: List[Dict], cc_result: Dict = None) -> Dict:
+    if cc_result and (cc_result.get("timed_out") or (cc_result.get("error") and "not found" in str(cc_result["error"]).lower())):
+        return {
+            "average": None,
+            "max": None,
+            "min": None,
+            "total": None,
+            "count": 0,
+            "status": "NOT_EXECUTED",
+            "risk": "NOT_EXECUTED",
+            "grade": "N/A",
+            "distribution": {"LOW": 0, "MODERATE": 0, "HIGH": 0, "CRITICAL": 0},
+            "error": "Analysis timed out" if cc_result.get("timed_out") else str(cc_result.get("error")),
+        }
+
     if not functions:
         return {
             "average": 0,
             "max": 0,
             "min": 0,
             "total": 0,
+            "count": 0,
+            "status": "PASSED",
             "risk": "LOW",
             "grade": "A",
             "distribution": {"LOW": 0, "MODERATE": 0, "HIGH": 0, "CRITICAL": 0},
+            "notes": "No public functions or classes defined in module",
         }
 
     complexities = [f["complexity"] for f in functions]

@@ -33,6 +33,18 @@ def generate_html_report(result: Dict) -> str:
         "CRITICAL": "#dc2626",
     }.get(risk_category, "#64748b")
 
+    stmt_cov_val = coverage.get("statement_coverage")
+    stmt_cov_str = f"{stmt_cov_val:.1f}%" if stmt_cov_val is not None else "N/A"
+
+    branch_cov_val = coverage.get("branch_coverage")
+    branch_cov_str = f"{branch_cov_val:.1f}%" if branch_cov_val is not None else "N/A"
+
+    avg_complexity_val = complexity.get("average")
+    avg_complexity_str = f"{avg_complexity_val:.1f}" if avg_complexity_val is not None else "N/A"
+
+    pred_score_val = prediction.get("score", 0)
+    pred_score_str = f"{pred_score_val:.0f}/100" if pred_score_val is not None else "N/A"
+
     # Build criteria rows with safe HTML escaping
     criteria_rows = ""
     for tool_key, crit_list in criteria_map.items():
@@ -43,6 +55,7 @@ def generate_html_report(result: Dict) -> str:
                 "WARNING": "status-warn",
                 "FAILED": "status-fail",
                 "NOT_EXECUTED": "status-ne",
+                "NOT_APPLICABLE": "status-na",
             }.get(status, "status-ne")
             c_id = html_lib.escape(str(c.get("id", "")))
             c_name = html_lib.escape(str(c.get("name", "")))
@@ -50,12 +63,13 @@ def generate_html_report(result: Dict) -> str:
             c_details = html_lib.escape(str(c.get("details", ""))[:300])
             c_rec = html_lib.escape(str(c.get("recommendation", ""))[:200])
 
+            display_status = "N/A" if status == "NOT_APPLICABLE" else status
             criteria_rows += f"""
             <tr>
                 <td style="font-family:monospace;font-weight:600;color:#2563eb;">{c_id}</td>
                 <td><strong>{c_name}</strong></td>
                 <td>{c_tool}</td>
-                <td><span class="badge {status_class}">{status}</span></td>
+                <td><span class="badge {status_class}">{display_status}</span></td>
                 <td class="details-cell">{c_details}</td>
                 <td class="rec-cell">{c_rec}</td>
             </tr>"""
@@ -98,6 +112,24 @@ def generate_html_report(result: Dict) -> str:
     recommendations = ""
     for rec in prediction.get("recommendations", []):
         recommendations += f"<li>{html_lib.escape(str(rec))}</li>"
+
+    component_items = []
+    for k, v in prediction.get("components", {}).items():
+        name = html_lib.escape(str(k.replace("_", " ").title()))
+        sc = v.get("score")
+        wt = v.get("weight", 0)
+        contrib = v.get("contribution", 0)
+        eff_wt = v.get("effective_weight", wt)
+        if sc is not None:
+            component_items.append(
+                f"<li><strong>{name}</strong>: score {sc:.1f} &times; weight {wt:.0%} "
+                f"(effective {eff_wt:.0%}) = <strong>{contrib:.1f} pts</strong></li>"
+            )
+        else:
+            component_items.append(
+                f"<li><strong>{name}</strong>: <em>Not Available (omitted from weighted aggregate)</em></li>"
+            )
+    component_breakdown_html = "".join(component_items)
 
     html_out = f"""<!DOCTYPE html>
 <html lang="en">
@@ -187,6 +219,7 @@ def generate_html_report(result: Dict) -> str:
   .status-warn {{ background: #fef3c7; color: #b45309; border: 1px solid #fcd34d; }}
   .status-fail {{ background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }}
   .status-ne {{ background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }}
+  .status-na {{ background: #f8fafc; color: #64748b; border: 1px solid #cbd5e1; }}
   .sev-tag {{ display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; }}
   .sev-HIGH {{ background: #fee2e2; color: #b91c1c; }}
   .sev-MEDIUM {{ background: #fef3c7; color: #b45309; }}
@@ -245,20 +278,20 @@ def generate_html_report(result: Dict) -> str:
     <div class="label">Failed</div>
   </div>
   <div class="metric-card">
-    <div class="value" style="color:#2563eb">{coverage.get('statement_coverage', 0):.1f}%</div>
+    <div class="value" style="color:#2563eb">{stmt_cov_str}</div>
     <div class="label">Statement Coverage</div>
   </div>
   <div class="metric-card">
-    <div class="value" style="color:#0284c7">{coverage.get('branch_coverage', 0):.1f}%</div>
+    <div class="value" style="color:#0284c7">{branch_cov_str}</div>
     <div class="label">Branch Coverage</div>
   </div>
   <div class="metric-card">
-    <div class="value" style="color:#7c3aed">{complexity.get('average', 0):.1f}</div>
+    <div class="value" style="color:#7c3aed">{avg_complexity_str}</div>
     <div class="label">Avg Complexity</div>
   </div>
   <div class="metric-card">
     <div class="value" style="color:{risk_color}">{risk_category}</div>
-    <div class="label">Defect Risk ({prediction.get('score', 0):.0f}/100)</div>
+    <div class="label">Defect Risk ({pred_score_str})</div>
   </div>
 </div>
 
@@ -288,7 +321,7 @@ def generate_html_report(result: Dict) -> str:
 
   <h3 style="font-size:1rem;margin-top:1.25rem;">Component Breakdown</h3>
   <ul>
-  {''.join(f"<li><strong>{html_lib.escape(str(k.replace('_', ' ').title()))}</strong>: score {v.get('score', 0):.1f} &times; weight {v.get('weight', 0):.0%} = <strong>{v.get('contribution', 0):.1f} pts</strong></li>" for k, v in prediction.get('components', {}).items())}
+  {component_breakdown_html}
   </ul>
 
   <h3 style="font-size:1rem;margin-top:1.25rem;">Recommendations</h3>

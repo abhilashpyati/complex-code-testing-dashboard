@@ -515,7 +515,7 @@ class TestAPIValidation:
             assert 'id' in c, f"Missing 'id' in criterion: {c}"
             assert 'name' in c
             assert 'status' in c
-            assert c['status'] in ('PASSED', 'WARNING', 'FAILED', 'NOT_EXECUTED'), \
+            assert c['status'] in ('PASSED', 'WARNING', 'FAILED', 'NOT_EXECUTED', 'NOT_APPLICABLE'), \
                 f"Invalid status: {c['status']}"
             assert 'tool' in c
             assert 'details' in c
@@ -643,4 +643,104 @@ class TestBanditSeverityAndClassification:
             assert 'confidence' in f
             assert f['severity'] in ('LOW', 'MEDIUM', 'HIGH')
             assert f['confidence'] in ('LOW', 'MEDIUM', 'HIGH')
+
+
+class TestPhase3ReliabilityAndCorrections:
+    """Phase 3 verification: Coverage reliability, dynamic test generation, and weight normalization."""
+
+    def test_branchless_code_coverage_and_report(self, client):
+        """Branchless code must report branch_coverage=None and CV-02/CV-04 as NOT_APPLICABLE."""
+        branchless = """
+def calculate_area(length: float, width: float) -> float:
+    \"\"\"Calculate rectangle area.\"\"\"
+    return length * width
+"""
+        resp = post_analyze(client, branchless, "area_calc.py")
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        cov = data.get("coverage_metrics", {})
+        assert cov.get("statement_coverage") is not None
+        assert cov.get("statement_coverage") > 0
+        assert cov.get("branch_coverage") is None
+
+        # Verify CV-02 and CV-04 criteria
+        criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
+        assert criteria_by_id["CV-02"]["status"] == "NOT_APPLICABLE"
+        assert "no conditional branches" in criteria_by_id["CV-02"]["details"].lower()
+        assert criteria_by_id["CV-04"]["status"] == "NOT_APPLICABLE"
+
+        # Verify HTML report doesn't crash on None branch_coverage
+        analysis_id = data["analysis_id"]
+        report_resp = client.get(f"/api/report/{analysis_id}?format=html")
+        assert report_resp.status_code == 200
+        html = report_resp.data.decode()
+        assert "N/A" in html
+        assert "area_calc.py" in html
+
+    def test_branching_code_coverage(self, client):
+        """Code with branches must calculate both statement and branch coverage."""
+        branching = """
+def classify_number(n: int) -> str:
+    \"\"\"Classify a number.\"\"\"
+    if n > 0:
+        return 'positive'
+    elif n < 0:
+        return 'negative'
+    else:
+        return 'zero'
+"""
+        resp = post_analyze(client, branching, "classifier.py")
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        cov = data.get("coverage_metrics", {})
+        assert cov.get("statement_coverage") is not None
+        assert cov.get("branch_coverage") is not None
+        assert isinstance(cov.get("branch_coverage"), (int, float))
+
+        criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
+        assert criteria_by_id["CV-02"]["status"] in ("PASSED", "WARNING", "FAILED")
+
+    def test_parameterized_function_execution(self, client):
+        """Dynamic PyTest runner must extract AST parameters and execute parameterized functions."""
+        code = """
+def divide_safe(a: float, b: float) -> float:
+    \"\"\"Divide two numbers safely.\"\"\"
+    if b == 0:
+        return 0.0
+    return a / b
+"""
+        resp = post_analyze(client, code, "math_utils.py")
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
+        # PT-04: Function Execution Under Test must pass (not skip with TypeError)
+        assert criteria_by_id["PT-04"]["status"] == "PASSED"
+        assert "passed successfully" in criteria_by_id["PT-04"]["details"].lower()
+
+    def test_defect_predictor_handles_missing_metrics(self):
+        """Defect predictor re-normalizes weights across available components when metrics are None."""
+        from backend.prediction.defect_predictor import predict
+
+        # Simulate missing coverage metrics (statement_coverage is None)
+        complexity_data = {"overall": {"average": 3.0, "distribution": {"LOW": 1}}}
+        pred = predict(
+            complexity_data=complexity_data,
+            security_findings=[],
+            static_findings=[],
+            coverage_metrics={"statement_coverage": None, "branch_coverage": None},
+            style_findings=[],
+        )
+        assert "score" in pred
+        assert 0 <= pred["score"] <= 100
+        # Coverage component must be UNAVAILABLE with score None
+        cov_comp = pred["components"]["coverage"]
+        assert cov_comp["status"] == "UNAVAILABLE"
+        assert cov_comp["score"] is None
+        assert cov_comp["effective_weight"] == 0.0
+        # Other components must have non-zero effective weights
+        assert pred["components"]["complexity"]["effective_weight"] > 0
+        assert pred["components"]["security"]["effective_weight"] > 0
 

@@ -256,8 +256,8 @@ function renderCharts(data) {
 
   // 1. Radar Chart
   const radar = document.getElementById('radarChart').getContext('2d');
-  const stmtCov = cov.statement_coverage || 0;
-  const branchCov = cov.branch_coverage || 0;
+  const stmtCov = cov.statement_coverage != null ? cov.statement_coverage : 0;
+  const branchCov = cov.branch_coverage != null ? cov.branch_coverage : stmtCov;
   const totalCrit = (data.all_criteria || []).length || 25;
   const passRate = totalCrit > 0 ? ((s.PASSED || 0) / totalCrit) * 100 : 0;
   const noSecurity = Math.max(0, 100 - ((data.findings?.bandit?.length || 0) * 15));
@@ -300,13 +300,22 @@ function renderCharts(data) {
 
   // 2. Doughnut
   const doughnut = document.getElementById('doughnutChart').getContext('2d');
+  const dLabels = ['Passed', 'Warning', 'Failed', 'Not Executed'];
+  const dData = [s.PASSED || 0, s.WARNING || 0, s.FAILED || 0, s.NOT_EXECUTED || 0];
+  const dColors = ['#16a34a', '#d97706', '#dc2626', '#64748b'];
+  if (s.NOT_APPLICABLE) {
+    dLabels.push('Not Applicable');
+    dData.push(s.NOT_APPLICABLE);
+    dColors.push('#94a3b8');
+  }
+
   charts.doughnut = new Chart(doughnut, {
     type: 'doughnut',
     data: {
-      labels: ['Passed', 'Warning', 'Failed', 'Not Executed'],
+      labels: dLabels,
       datasets: [{
-        data: [s.PASSED || 0, s.WARNING || 0, s.FAILED || 0, s.NOT_EXECUTED || 0],
-        backgroundColor: ['#16a34a', '#d97706', '#dc2626', '#64748b'],
+        data: dData,
+        backgroundColor: dColors,
         borderColor: '#ffffff',
         borderWidth: 3,
         hoverOffset: 6,
@@ -404,7 +413,7 @@ function renderCriteria(data) {
 }
 
 function countStatuses(list) {
-  const s = { PASSED: 0, WARNING: 0, FAILED: 0, NOT_EXECUTED: 0 };
+  const s = { PASSED: 0, WARNING: 0, FAILED: 0, NOT_EXECUTED: 0, NOT_APPLICABLE: 0 };
   list.forEach(c => { s[c.status] = (s[c.status] || 0) + 1; });
   return s;
 }
@@ -419,6 +428,7 @@ function makeCriteriaPanel(tool, criteria, summary, open) {
     ${summary.WARNING ? `<span class="status-badge status-WARNING">${summary.WARNING} ⚠</span>` : ''}
     ${summary.FAILED ? `<span class="status-badge status-FAILED">${summary.FAILED} ✗</span>` : ''}
     ${summary.NOT_EXECUTED ? `<span class="status-badge status-NOT_EXECUTED">${summary.NOT_EXECUTED} —</span>` : ''}
+    ${summary.NOT_APPLICABLE ? `<span class="status-badge status-NOT_APPLICABLE">${summary.NOT_APPLICABLE} N/A</span>` : ''}
   `;
 
   panel.innerHTML = `
@@ -454,11 +464,12 @@ function makeCriteriaPanel(tool, criteria, summary, open) {
 }
 
 function makeCriterionRow(c) {
+  const displayStatus = c.status === 'NOT_APPLICABLE' ? 'N/A' : c.status.replace('_', ' ');
   return `
     <tr data-status="${c.status}" class="criterion-row">
       <td><span class="criterion-id">${c.id}</span></td>
       <td><span class="criterion-name">${escHtml(c.name)}</span></td>
-      <td><span class="status-badge status-${c.status}">${c.status.replace('_', ' ')}</span></td>
+      <td><span class="status-badge status-${c.status}">${displayStatus}</span></td>
       <td class="text-secondary" style="font-size:.82rem">${escHtml(c.details || '')}</td>
       <td class="text-muted" style="font-size:.78rem">${escHtml(c.recommendation || '')}</td>
     </tr>

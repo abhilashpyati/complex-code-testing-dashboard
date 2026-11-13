@@ -3,6 +3,8 @@ Result formatter — normalises raw tool outputs into a consistent structure.
 """
 from typing import Any, Dict, List
 
+VALID_STATUSES = ("PASSED", "WARNING", "FAILED", "NOT_EXECUTED", "NOT_APPLICABLE")
+
 
 def make_criterion(
     criterion_id: str,
@@ -17,10 +19,9 @@ def make_criterion(
     """
     Create a normalised test criterion dict.
 
-    status must be one of: PASSED, WARNING, FAILED, NOT_EXECUTED
+    status must be one of: PASSED, WARNING, FAILED, NOT_EXECUTED, NOT_APPLICABLE
     """
-    assert status in ("PASSED", "WARNING", "FAILED", "NOT_EXECUTED"), \
-        f"Invalid status: {status}"
+    assert status in VALID_STATUSES, f"Invalid status: {status}. Must be one of {VALID_STATUSES}"
     return {
         "id": criterion_id,
         "name": name,
@@ -35,9 +36,16 @@ def make_criterion(
 
 def summarise_criteria(criteria: List[Dict]) -> Dict:
     """Return counts of each status category across criteria."""
-    counts = {"PASSED": 0, "WARNING": 0, "FAILED": 0, "NOT_EXECUTED": 0}
+    counts = {
+        "PASSED": 0,
+        "WARNING": 0,
+        "FAILED": 0,
+        "NOT_EXECUTED": 0,
+        "NOT_APPLICABLE": 0,
+    }
     for c in criteria:
-        counts[c["status"]] = counts.get(c["status"], 0) + 1
+        st = c.get("status", "NOT_EXECUTED")
+        counts[st] = counts.get(st, 0) + 1
     return counts
 
 
@@ -47,6 +55,7 @@ def calculate_health_score(
     failed: int,
     not_executed: int,
     total: int,
+    not_applicable: int = 0,
 ) -> float:
     """
     Calculate a 0-100 health score.
@@ -54,8 +63,10 @@ def calculate_health_score(
     - PASSED contributes full weight.
     - WARNING contributes half weight.
     - FAILED and NOT_EXECUTED contribute zero.
+    - NOT_APPLICABLE criteria are excluded from the denominator.
     """
-    if total == 0:
-        return 0.0
-    score = (passed + 0.5 * warning) / total * 100
+    applicable_total = total - not_applicable
+    if applicable_total <= 0:
+        return 100.0 if passed > 0 else 0.0
+    score = (passed + 0.5 * warning) / applicable_total * 100
     return round(score, 1)

@@ -114,11 +114,12 @@ def _execute_analysis(
     # --- Summary counts ---
     summary = summarise_criteria(all_criteria)
     health_score = calculate_health_score(
-        summary["PASSED"],
-        summary["WARNING"],
-        summary["FAILED"],
-        summary["NOT_EXECUTED"],
+        summary.get("PASSED", 0),
+        summary.get("WARNING", 0),
+        summary.get("FAILED", 0),
+        summary.get("NOT_EXECUTED", 0),
         len(all_criteria),
+        not_applicable=summary.get("NOT_APPLICABLE", 0),
     )
 
     return {

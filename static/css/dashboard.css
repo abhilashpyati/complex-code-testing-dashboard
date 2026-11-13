@@ -730,6 +730,11 @@ code {
   color: var(--neutral-text);
   border: 1px solid var(--neutral-border);
 }
+.status-NOT_APPLICABLE {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #cbd5e1;
+}
 
 /* Filter Buttons */
 .btn-xs {
