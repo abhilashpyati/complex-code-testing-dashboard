@@ -177,11 +177,11 @@ def _build_test_file(code: str, defs: Dict, module_name: str = "user_code") -> s
 
     # Test 3: Boundary & Edge Case Handling
     boundary_tests = []
-    if not funcs:
+    if not funcs and not classes:
         boundary_tests.append("    def test_no_functions_for_boundary(self):")
-        boundary_tests.append("        pytest.skip('NOT_APPLICABLE: No public functions for boundary testing')")
+        boundary_tests.append("        pytest.skip('NOT_APPLICABLE: No public functions or classes for boundary testing')")
     else:
-        for fn in funcs[:4]:
+        for fn in funcs[:6]:
             if fn.get("is_async"):
                 continue
             name = fn["name"]
@@ -194,8 +194,51 @@ def _build_test_file(code: str, defs: Dict, module_name: str = "user_code") -> s
             boundary_tests.append("            try:")
             boundary_tests.append("                res = fn(*args)")
             boundary_tests.append("            except (ValueError, TypeError, ZeroDivisionError, IndexError, KeyError, OverflowError):")
-            boundary_tests.append("                # Handled or domain-rejected input; acceptable")
             boundary_tests.append("                pass")
+            boundary_tests.append("")
+
+        str_hints = ("name", "owner", "acc", "account", "id", "user", "desc", "title", "key", "str", "text")
+        for cls in classes:
+            cname = cls["name"]
+            init_req = cls["init_required"]
+            init_names = cls.get("init_args", [])
+            init_arg_list = []
+            for idx in range(init_req):
+                pname = init_names[idx].lower() if idx < len(init_names) else ""
+                if any(h in pname for h in str_hints):
+                    init_arg_list.append(f"test_{pname or idx}")
+                else:
+                    init_arg_list.append(100.0)
+            init_args = tuple(init_arg_list)
+
+            # Boundary init arguments (empty strings, zeros, negatives)
+            b_init_list = []
+            if init_req > 0:
+                b_init_list.append(tuple("" if any(h in (init_names[i].lower() if i < len(init_names) else "") for h in str_hints) else 0 for i in range(init_req)))
+                b_init_list.append(tuple("test" if any(h in (init_names[i].lower() if i < len(init_names) else "") for h in str_hints) else -10.0 for i in range(init_req)))
+
+            boundary_tests.append(f"    def test_class_boundary_{cname}(self):")
+            boundary_tests.append("        assert user_code is not None")
+            boundary_tests.append(f"        cls = getattr(user_code, '{cname}', None)")
+            boundary_tests.append("        assert cls is not None")
+            if b_init_list:
+                boundary_tests.append("        for b_init in " + repr(b_init_list) + ":")
+                boundary_tests.append("            try:")
+                boundary_tests.append("                cls(*b_init)")
+                boundary_tests.append("            except (ValueError, TypeError, ZeroDivisionError, IndexError, KeyError, OverflowError):")
+                boundary_tests.append("                pass")
+            boundary_tests.append("        try:")
+            boundary_tests.append(f"            inst = cls(*{repr(init_args)})")
+            for m in cls["methods"]:
+                mname = m["name"]
+                m_req = m["required"]
+                boundary_tests.append("            for b_arg in [" + f"(0,) * {m_req}, (-1,) * {m_req}, (10,) * {m_req}" + "]:")
+                boundary_tests.append("                try:")
+                boundary_tests.append(f"                    getattr(inst, '{mname}')(*b_arg)")
+                boundary_tests.append("                except (ValueError, TypeError, ZeroDivisionError, IndexError, KeyError, OverflowError, Exception):")
+                boundary_tests.append("                    pass")
+            boundary_tests.append("        except Exception:")
+            boundary_tests.append("            pass")
             boundary_tests.append("")
 
     lines += ["class TestBoundaryConditions:"] + boundary_tests + [""]

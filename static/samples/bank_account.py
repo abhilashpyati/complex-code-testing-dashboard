@@ -28,6 +28,7 @@ class Transaction:
         self.timestamp = datetime.now().isoformat()
 
     def to_dict(self) -> Dict:
+        """Convert transaction details to dictionary representation."""
         return {
             "type": self.type,
             "amount": self.amount,
@@ -42,6 +43,7 @@ class BankAccount:
     INTEREST_RATE = 0.035  # 3.5% annual
 
     def __init__(self, owner: str, account_number: str, initial_balance: float = 0.0):
+        """Initialize a new bank account with owner and starting balance."""
         if not owner.strip():
             raise ValueError("Account owner name cannot be empty")
         if initial_balance < 0:
@@ -58,13 +60,16 @@ class BankAccount:
 
     @property
     def balance(self) -> float:
+        """Return the current available balance."""
         return self._balance
 
     @property
     def is_frozen(self) -> bool:
+        """Check whether the account is currently frozen."""
         return self._frozen
 
     def deposit(self, amount: float, description: str = "Deposit") -> float:
+        """Deposit funds into the account and record credit transaction."""
         self._check_not_frozen()
         if amount <= 0:
             raise ValueError("Deposit amount must be positive")
@@ -73,6 +78,7 @@ class BankAccount:
         return self._balance
 
     def withdraw(self, amount: float, description: str = "Withdrawal") -> float:
+        """Withdraw funds from the account if sufficient balance exists."""
         self._check_not_frozen()
         if amount <= 0:
             raise ValueError("Withdrawal amount must be positive")
@@ -86,11 +92,13 @@ class BankAccount:
         return self._balance
 
     def transfer(self, target: "BankAccount", amount: float) -> float:
+        """Transfer funds from this account to a destination target account."""
         self.withdraw(amount, f"Transfer to {target.account_number}")
         target.deposit(amount, f"Transfer from {self.account_number}")
         return self._balance
 
     def apply_interest(self) -> float:
+        """Calculate and apply accrued annual interest to account balance."""
         self._check_not_frozen()
         interest = self._balance * self.INTEREST_RATE
         if interest > 0:
@@ -101,15 +109,19 @@ class BankAccount:
         return interest
 
     def freeze(self):
+        """Freeze account to prevent further withdrawals or transactions."""
         self._frozen = True
 
     def unfreeze(self):
+        """Unfreeze account to restore normal transaction processing."""
         self._frozen = False
 
     def get_statement(self) -> List[Dict]:
+        """Retrieve complete chronological list of transaction records."""
         return [t.to_dict() for t in self._transactions]
 
     def _check_not_frozen(self):
+        """Verify account is active; raise error if account is frozen."""
         if self._frozen:
             raise AccountFrozenError("Account is frozen and cannot process transactions")
 
