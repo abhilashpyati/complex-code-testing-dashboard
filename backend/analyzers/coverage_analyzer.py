@@ -5,8 +5,8 @@ Uses Coverage.py to measure statement and branch coverage.
 Five criteria:
 1. Statement Coverage ≥ 80%
 2. Branch Coverage ≥ 60%
-3. All Top-Level Functions Reached
-4. No Completely Uncovered Files
+3. No Uncovered Executable Statements
+4. No Uncovered Branches
 5. Coverage Report Generation Success
 """
 import os
@@ -23,44 +23,64 @@ TOOL = "Coverage.py"
 def analyze(workspace_dir: str, code_path: str, code: str) -> Dict:
     """Run Coverage.py and return five criteria."""
     python = get_python_executable()
-
-    # Write a simple runner script that imports the user module
-    runner_path = os.path.join(workspace_dir, "run_coverage.py")
-    with open(runner_path, "w", encoding="utf-8") as f:
-        f.write(
-            "import sys, os\n"
-            "sys.path.insert(0, os.path.dirname(__file__))\n"
-            "try:\n"
-            "    import user_code\n"
-            "except Exception:\n"
-            "    pass\n"
-        )
-
+    module_name = os.path.splitext(os.path.basename(code_path))[0]
     coverage_data_file = os.path.join(workspace_dir, ".coverage")
     json_report_path = os.path.join(workspace_dir, "coverage.json")
+    test_path = os.path.join(workspace_dir, "test_user_code.py")
 
-    # Step 1: run with coverage
-    run_result = run_tool(
-        [
-            python, "-m", "coverage", "run",
-            f"--data-file={coverage_data_file}",
-            "--branch",
-            runner_path,
-        ],
-        workspace_dir,
-    )
+    # Step 1: Run coverage
+    # If pytest test file exists in the workspace, run coverage against the tests
+    run_result = None
+    if os.path.exists(test_path):
+        run_result = run_tool(
+            [
+                python, "-m", "coverage", "run",
+                f"--data-file={coverage_data_file}",
+                "--branch",
+                "-m", "pytest",
+                test_path,
+                "-q",
+                "--no-header",
+            ],
+            workspace_dir,
+            timeout=25,
+        )
 
-    # Step 2: JSON report
+    # If test file doesn't exist or run failed, fallback to direct module import runner
+    if not run_result or run_result.get("returncode") != 0 or not os.path.exists(coverage_data_file):
+        runner_path = os.path.join(workspace_dir, "run_coverage.py")
+        with open(runner_path, "w", encoding="utf-8") as f:
+            f.write(
+                "import sys, os, importlib\n"
+                "sys.path.insert(0, os.path.dirname(__file__))\n"
+                f"for mod in ('user_code', '{module_name}'):\n"
+                "    try:\n"
+                "        importlib.import_module(mod)\n"
+                "    except Exception:\n"
+                "        pass\n"
+            )
+        run_result = run_tool(
+            [
+                python, "-m", "coverage", "run",
+                f"--data-file={coverage_data_file}",
+                "--branch",
+                runner_path,
+            ],
+            workspace_dir,
+            timeout=25,
+        )
+
+    # Step 2: Generate JSON report with separate -o and path argument
     report_result = run_tool(
         [
             python, "-m", "coverage", "json",
             f"--data-file={coverage_data_file}",
-            f"-o={json_report_path}",
+            "-o", json_report_path,
         ],
         workspace_dir,
     )
 
-    # Parse coverage data
+    # Parse coverage JSON data
     cov_data: Dict = {}
     if os.path.exists(json_report_path):
         try:
@@ -69,7 +89,7 @@ def analyze(workspace_dir: str, code_path: str, code: str) -> Dict:
         except Exception:
             pass
 
-    return _build_criteria(run_result, report_result, cov_data, workspace_dir, code)
+    return _build_criteria(run_result, report_result, cov_data, workspace_dir, code, code_path)
 
 
 def _build_criteria(
@@ -78,6 +98,7 @@ def _build_criteria(
     cov_data: Dict,
     workspace_dir: str,
     code: str,
+    code_path: str,
 ) -> Dict:
     tool_available = not (
         (run_result.get("error") and "not found" in str(run_result["error"]).lower())
@@ -103,22 +124,39 @@ def _build_criteria(
     report_generated = bool(cov_data)
 
     if cov_data:
-        totals = cov_data.get("totals", {})
-        stmt_cov = totals.get("percent_covered", 0.0)
-        branch_cov = totals.get("percent_covered_display", stmt_cov)
+        target_filename = os.path.basename(code_path)
+        target_file_data = None
 
-        # Try branch coverage specifically
-        covered_branches = totals.get("covered_branches", 0)
-        total_branches = totals.get("num_branches", 0)
-        if total_branches > 0:
-            branch_cov = round(covered_branches / total_branches * 100, 1)
-
-        # Per-file data
+        # Find the specific submitted source file in coverage report
         for fname, fdata in cov_data.get("files", {}).items():
-            if "user_code" in fname:
-                missing_lines = fdata.get("missing_lines", [])
-                executed_lines = fdata.get("executed_lines", [])
-                missing_branches = fdata.get("missing_branches", [])
+            base = os.path.basename(fname)
+            if base == target_filename or base == "user_code.py" or target_filename in fname:
+                target_file_data = fdata
+                break
+
+        if target_file_data:
+            summary = target_file_data.get("summary", {})
+            stmt_cov = summary.get("percent_statements_covered", summary.get("percent_covered", 0.0))
+            num_branches = summary.get("num_branches", 0)
+            covered_branches = summary.get("covered_branches", 0)
+            if num_branches > 0:
+                branch_cov = round(covered_branches / num_branches * 100, 1)
+            else:
+                # If there are no conditional branches in the code, branch coverage is 100%
+                branch_cov = 100.0
+
+            missing_lines = target_file_data.get("missing_lines", [])
+            executed_lines = target_file_data.get("executed_lines", [])
+            missing_branches = target_file_data.get("missing_branches", [])
+        else:
+            totals = cov_data.get("totals", {})
+            stmt_cov = totals.get("percent_statements_covered", totals.get("percent_covered", 0.0))
+            num_branches = totals.get("num_branches", 0)
+            covered_branches = totals.get("covered_branches", 0)
+            if num_branches > 0:
+                branch_cov = round(covered_branches / num_branches * 100, 1)
+            else:
+                branch_cov = 100.0
 
     # Fallback: try parsing text report
     if not cov_data and not run_result.get("error"):
@@ -163,10 +201,10 @@ def _build_criteria(
         c4_detail = "All branches were executed"
     elif len(missing_branches) <= 3:
         c4_status = "WARNING"
-        c4_detail = f"Uncovered branches: {len(missing_branches)} branches"
+        c4_detail = f"Uncovered branches: {len(missing_branches)} branch(es)"
     else:
         c4_status = "FAILED"
-        c4_detail = f"{len(missing_branches)} uncovered branches detected"
+        c4_detail = f"{len(missing_branches)} uncovered branch(es) detected"
 
     # Criterion 5: Report generation
     if report_generated:
@@ -193,8 +231,8 @@ def _build_criteria(
     ]
 
     metrics = {
-        "statement_coverage": stmt_cov,
-        "branch_coverage": branch_cov,
+        "statement_coverage": round(stmt_cov, 1),
+        "branch_coverage": round(branch_cov, 1),
         "executed_lines": executed_lines,
         "missing_lines": missing_lines,
         "missing_branches": missing_branches,

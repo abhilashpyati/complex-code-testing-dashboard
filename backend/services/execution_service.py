@@ -28,6 +28,11 @@ def create_workspace(code: str, filename: str = "user_code.py") -> Tuple[str, st
     code_path = os.path.join(workspace_dir, filename)
     with open(code_path, "w", encoding="utf-8") as f:
         f.write(code)
+    # Also write user_code.py as an alias if filename is different
+    if filename != "user_code.py":
+        alias_path = os.path.join(workspace_dir, "user_code.py")
+        with open(alias_path, "w", encoding="utf-8") as f:
+            f.write(code)
     return workspace_dir, code_path
 
 
