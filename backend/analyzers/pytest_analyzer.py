@@ -348,107 +348,193 @@ def analyze(workspace_dir: str, code_path: str, code: str) -> Dict:
 
 def _criterion_names():
     return [
-        "Module Importability & Syntax Integrity",
-        "Public Function Execution (Valid Inputs)",
-        "Boundary Condition & Edge Case Execution",
-        "Runtime Exception & Name Error Resilience",
-        "Module Integrity & Invariant Preservation",
+        "Test Execution & Discovery",
+        "Assertion Validation",
+        "Runtime Error Detection",
+        "Function Execution Under Test",
+        "Boundary and Input Validation",
     ]
 
 
 def _parse_criteria(result: Dict, report: Dict, defs: Dict) -> List[Dict]:
-    """Map pytest outcomes to the five criteria."""
+    """Map pytest outcomes to the five Phase 4 dynamic testing criteria."""
     criteria = []
     names = _criterion_names()
 
     # Collect test results by test class
+    all_tests = report.get("tests", [])
     tests_by_class = {}
-    for test in report.get("tests", []):
+    for test in all_tests:
         node = test.get("nodeid", "")
         cls = node.split("::")[1] if "::" in node else "Unknown"
         tests_by_class.setdefault(cls, []).append(test)
 
-    class_order = [
-        "TestImportability",
-        "TestFunctionExecution",
-        "TestBoundaryConditions",
-        "TestRuntimeExceptions",
-        "TestModuleIntegrity",
-    ]
-
+    raw_summary = report.get("summary", {})
+    passed_count = raw_summary.get("passed", 0)
+    failed_count = raw_summary.get("failed", 0)
+    skipped_count = raw_summary.get("skipped", 0)
+    total_count = raw_summary.get("total", passed_count + failed_count + skipped_count)
     has_callable = defs.get("has_callable", False)
 
-    for idx, (cls, name) in enumerate(zip(class_order, names), 1):
-        crit_id = f"PT-{idx:02d}"
-        tests = tests_by_class.get(cls, [])
-
-        if not tests:
-            # Handle modules without functions
-            if not has_callable and cls in ("TestFunctionExecution", "TestBoundaryConditions"):
-                criteria.append(make_criterion(
-                    crit_id, name, "NOT_APPLICABLE",
-                    "No public functions or classes defined in module", TOOL,
-                    recommendation="Add public functions or classes with parameters to test execution",
-                ))
-                continue
-
-            rc = result.get("returncode", -1)
-            if rc == 0:
-                status = "PASSED"
-                details = f"{name} verified successfully"
-            elif result.get("error"):
-                status = "NOT_EXECUTED"
-                details = str(result["error"])
-            else:
-                status = "WARNING"
-                details = "Test outcome unknown"
-
-            criteria.append(make_criterion(crit_id, name, status, details, TOOL))
-            continue
-
-        outcomes = [t.get("outcome", "unknown") for t in tests]
-
-        # Check for NOT_APPLICABLE skip reasons
-        skip_reasons = [
-            t.get("call", {}).get("longrepr", "")
-            or t.get("metadata", {}).get("skip_reason", "")
-            for t in tests if t.get("outcome") == "skipped"
-        ]
-        is_na = any("NOT_APPLICABLE" in str(r) for r in skip_reasons) or (
-            not has_callable and cls in ("TestFunctionExecution", "TestBoundaryConditions")
-        )
-
-        if is_na:
-            status = "NOT_APPLICABLE"
-            details = "No callable functions or classes in submitted module"
-            rec = "Add callable functions to test parameter handling"
-        elif all(o == "passed" for o in outcomes):
-            status = "PASSED"
-            details = f"All {len(outcomes)} dynamic test(s) passed successfully"
-            rec = "Verify domain invariants and add property tests"
-        elif any(o == "failed" for o in outcomes):
-            status = "FAILED"
-            failed_tests = [t for t in tests if t.get("outcome") == "failed"]
-            failures_repr = []
-            for ft in failed_tests[:2]:
-                crash = ft.get("call", {}).get("crash", {})
-                msg = crash.get("message") or str(ft.get("call", {}).get("longrepr", ""))[:150]
-                failures_repr.append(f"{ft.get('nodeid', '').split('::')[-1]}: {msg}")
-            details = "Failures: " + " | ".join(failures_repr)
-            rec = "Debug runtime failure and inspect traceback"
-        elif all(o == "skipped" for o in outcomes):
-            status = "WARNING"
-            details = f"All {len(outcomes)} test(s) were skipped"
-            rec = "Ensure function signatures are compatible with test generation"
+    # -------------------------------------------------------------
+    # PT-01: Test Execution & Discovery
+    # -------------------------------------------------------------
+    if total_count == 0:
+        if not has_callable:
+            status_01 = "NOT_APPLICABLE"
+            details_01 = "No tests discovered; submitted module contains no executable callables"
+            rec_01 = "Add callable functions or classes to enable dynamic test discovery"
         else:
-            status = "WARNING"
-            details = f"Outcomes: {', '.join(set(outcomes))}"
-            rec = "Investigate partial test outcome"
+            status_01 = "WARNING"
+            details_01 = "No tests were executed"
+            rec_01 = "Verify code structure and test generator discovery"
+    elif failed_count == 0 and passed_count > 0:
+        status_01 = "PASSED"
+        details_01 = f"PyTest executed {total_count} test(s) successfully: {passed_count} passed, {skipped_count} skipped, 0 failed"
+        rec_01 = "Continue maintaining thorough automated tests"
+    elif failed_count > 0:
+        status_01 = "FAILED"
+        details_01 = f"PyTest executed {total_count} test(s) with {failed_count} failure(s): {passed_count} passed, {skipped_count} skipped"
+        rec_01 = "Investigate and resolve failing test cases"
+    else:
+        status_01 = "WARNING"
+        details_01 = f"All {total_count} test(s) were skipped or incomplete"
+        rec_01 = "Provide executable test targets and inputs"
 
-        criteria.append(make_criterion(
-            crit_id, name, status, details, TOOL,
-            raw={"outcomes": outcomes, "class": cls},
-            recommendation=rec,
-        ))
+    criteria.append(make_criterion(
+        "PT-01", names[0], status_01, details_01, TOOL,
+        raw={"passed": passed_count, "failed": failed_count, "skipped": skipped_count, "total": total_count},
+        recommendation=rec_01,
+    ))
+
+    # -------------------------------------------------------------
+    # PT-02: Assertion Validation
+    # -------------------------------------------------------------
+    # Look for AssertionError specifically across any test
+    assertion_failures = []
+    for t in all_tests:
+        if t.get("outcome") == "failed":
+            crash = t.get("call", {}).get("crash", {})
+            msg = crash.get("message", "") or str(t.get("call", {}).get("longrepr", ""))
+            if "AssertionError" in msg or "assert " in msg:
+                node = t.get("nodeid", "").split("::")[-1]
+                clean_msg = msg.splitlines()[-1] if msg.splitlines() else msg
+                assertion_failures.append(f"{node}: {clean_msg[:120]}")
+
+    if not has_callable:
+        status_02 = "NOT_APPLICABLE"
+        details_02 = "No functions or assertions to validate in submitted module"
+        rec_02 = "Add assertions or test specifications to validate logic"
+    elif assertion_failures:
+        status_02 = "FAILED"
+        details_02 = f"{len(assertion_failures)} assertion failure(s): " + " | ".join(assertion_failures[:2])
+        rec_02 = "Review failed assertions to correct algorithmic or functional defects"
+    elif failed_count == 0 and passed_count > 0:
+        status_02 = "PASSED"
+        details_02 = f"All evaluated test assertions passed without violation ({passed_count} verified)"
+        rec_02 = "Add domain-specific boundary assertions to deepen verification"
+    else:
+        status_02 = "PASSED"
+        details_02 = "No assertion violations detected"
+        rec_02 = "Specify expected outputs and invariants"
+
+    criteria.append(make_criterion(
+        "PT-02", names[1], status_02, details_02, TOOL,
+        raw={"assertion_failures": assertion_failures},
+        recommendation=rec_02,
+    ))
+
+    # -------------------------------------------------------------
+    # PT-03: Runtime Error Detection
+    # -------------------------------------------------------------
+    # Capture runtime exceptions (NameError, ZeroDivisionError, TypeError, etc.)
+    runtime_errors = []
+    for t in all_tests:
+        if t.get("outcome") == "failed":
+            crash = t.get("call", {}).get("crash", {})
+            msg = crash.get("message", "") or str(t.get("call", {}).get("longrepr", ""))
+            if "AssertionError" not in msg:
+                node = t.get("nodeid", "").split("::")[-1]
+                clean_msg = msg.splitlines()[-1] if msg.splitlines() else msg
+                runtime_errors.append(f"{node}: {clean_msg[:120]}")
+
+    if not has_callable:
+        status_03 = "PASSED"
+        details_03 = "Module imported without top-level runtime exceptions"
+        rec_03 = "Maintain exception safety in module initialization"
+    elif runtime_errors:
+        status_03 = "FAILED"
+        details_03 = f"{len(runtime_errors)} runtime exception(s) detected: " + " | ".join(runtime_errors[:2])
+        rec_03 = "Handle potential runtime exceptions (ZeroDivisionError, NameError, TypeError)"
+    else:
+        status_03 = "PASSED"
+        details_03 = "No unhandled runtime errors detected during test execution"
+        rec_03 = "Ensure robust error handling on edge cases"
+
+    criteria.append(make_criterion(
+        "PT-03", names[2], status_03, details_03, TOOL,
+        raw={"runtime_errors": runtime_errors},
+        recommendation=rec_03,
+    ))
+
+    # -------------------------------------------------------------
+    # PT-04: Function Execution Under Test
+    # -------------------------------------------------------------
+    fn_tests = tests_by_class.get("TestFunctionExecution", [])
+    if not has_callable or not fn_tests:
+        status_04 = "NOT_APPLICABLE"
+        details_04 = "No public functions or classes defined in module"
+        rec_04 = "Define callable functions or classes to verify invocation"
+    else:
+        fn_outcomes = [t.get("outcome", "unknown") for t in fn_tests]
+        if all(o == "passed" for o in fn_outcomes):
+            status_04 = "PASSED"
+            details_04 = f"All {len(fn_outcomes)} identified callable(s) invoked successfully with valid inputs"
+            rec_04 = "Broaden parameter input ranges and test scenarios"
+        elif any(o == "failed" for o in fn_outcomes):
+            status_04 = "FAILED"
+            fn_fails = [t.get("nodeid", "").split("::")[-1] for t in fn_tests if t.get("outcome") == "failed"]
+            details_04 = f"Invocation failed on {len(fn_fails)} callable(s): " + ", ".join(fn_fails[:3])
+            rec_04 = "Ensure functions accept documented parameter types and counts"
+        else:
+            status_04 = "WARNING"
+            details_04 = "Partial callable execution outcome"
+            rec_04 = "Verify function signatures"
+
+    criteria.append(make_criterion(
+        "PT-04", names[3], status_04, details_04, TOOL,
+        raw={"tests_count": len(fn_tests)},
+        recommendation=rec_04,
+    ))
+
+    # -------------------------------------------------------------
+    # PT-05: Boundary and Input Validation
+    # -------------------------------------------------------------
+    b_tests = tests_by_class.get("TestBoundaryConditions", [])
+    if not has_callable or not b_tests:
+        status_05 = "NOT_APPLICABLE"
+        details_05 = "No public callables to test boundary conditions against"
+        rec_05 = "Add functions taking parameters to test edge conditions"
+    else:
+        b_outcomes = [t.get("outcome", "unknown") for t in b_tests]
+        if all(o == "passed" for o in b_outcomes):
+            status_05 = "PASSED"
+            details_05 = f"All {len(b_outcomes)} boundary/edge test(s) handled inputs and exceptions gracefully"
+            rec_05 = "Test additional domain boundaries (overflow, empty structures)"
+        elif any(o == "failed" for o in b_outcomes):
+            status_05 = "FAILED"
+            b_fails = [t.get("nodeid", "").split("::")[-1] for t in b_tests if t.get("outcome") == "failed"]
+            details_05 = f"Boundary failure on {len(b_fails)} test(s): " + ", ".join(b_fails[:3])
+            rec_05 = "Add guard clauses and input validation for boundary cases (0, negatives, empty strings)"
+        else:
+            status_05 = "WARNING"
+            details_05 = "Partial boundary test outcome"
+            rec_05 = "Investigate boundary edge cases"
+
+    criteria.append(make_criterion(
+        "PT-05", names[4], status_05, details_05, TOOL,
+        raw={"tests_count": len(b_tests)},
+        recommendation=rec_05,
+    ))
 
     return criteria

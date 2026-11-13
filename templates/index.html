@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Complex Code Testing Dashboard | Professional Code Quality Analysis</title>
-<meta name="description" content="Automated Python code quality analysis: PyTest, Coverage.py, Flake8, Pylint, Bandit, Pycodestyle, Radon — cyclomatic complexity and defect prediction.">
+<meta name="description" content="Automated Python code quality analysis: PyTest, Flake8, Pylint, Bandit, Pycodestyle, Radon — cyclomatic complexity and defect prediction.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
@@ -46,11 +46,10 @@
     </div>
     <h1 class="hero-title">Complex Code Testing Dashboard</h1>
     <p class="hero-subtitle">
-      Automated multi-tool quality verification for Python code — integrating Dynamic Testing, Code Coverage, Static Code Analysis, Security Auditing, PEP 8 Standards, and Cyclomatic Complexity.
+      Automated multi-tool quality verification for Python code — integrating Dynamic Testing, Static Code Analysis, Code Quality, Security Auditing, PEP 8 Standards, and Cyclomatic Complexity.
     </p>
     <div class="hero-tools mt-3 d-flex flex-wrap justify-content-center gap-2">
       <span class="tool-pill"><i class="bi bi-play-circle me-1 text-primary"></i>PyTest</span>
-      <span class="tool-pill"><i class="bi bi-graph-up me-1 text-primary"></i>Coverage.py</span>
       <span class="tool-pill"><i class="bi bi-search me-1 text-primary"></i>Flake8</span>
       <span class="tool-pill"><i class="bi bi-clipboard-check me-1 text-primary"></i>Pylint</span>
       <span class="tool-pill"><i class="bi bi-shield-lock me-1 text-primary"></i>Bandit</span>
@@ -147,35 +146,35 @@
               <span class="module-num">1</span>
               <div>
                 <strong>Dynamic Testing</strong>
-                <span class="d-block text-muted small">PyTest execution & assertions</span>
+                <span class="d-block text-muted small">PyTest execution & assertions (5 criteria)</span>
               </div>
             </div>
             <div class="module-item">
               <span class="module-num">2</span>
               <div>
-                <strong>Coverage Measurement</strong>
-                <span class="d-block text-muted small">Statement & branch tracking (Coverage.py)</span>
+                <strong>Static Code Analysis</strong>
+                <span class="d-block text-muted small">Flake8 linting & syntax checks (5 criteria)</span>
               </div>
             </div>
             <div class="module-item">
               <span class="module-num">3</span>
               <div>
-                <strong>Static Code Smells</strong>
-                <span class="d-block text-muted small">Flake8 & Pylint linting</span>
+                <strong>Code Quality</strong>
+                <span class="d-block text-muted small">Pylint code quality & docstrings (5 criteria)</span>
               </div>
             </div>
             <div class="module-item">
               <span class="module-num">4</span>
               <div>
                 <strong>Security Vulnerabilities</strong>
-                <span class="d-block text-muted small">Bandit AST security auditing</span>
+                <span class="d-block text-muted small">Bandit AST security auditing (5 criteria)</span>
               </div>
             </div>
             <div class="module-item">
               <span class="module-num">5</span>
               <div>
                 <strong>Coding Standards</strong>
-                <span class="d-block text-muted small">PEP 8 compliance (Pycodestyle)</span>
+                <span class="d-block text-muted small">PEP 8 compliance via Pycodestyle (5 criteria)</span>
               </div>
             </div>
             <div class="module-item">
@@ -189,7 +188,7 @@
               <span class="module-num">7</span>
               <div>
                 <strong>Defect Risk Estimation</strong>
-                <span class="d-block text-muted small">5-factor heuristic risk scoring</span>
+                <span class="d-block text-muted small">4-factor heuristic risk scoring</span>
               </div>
             </div>
           </div>
@@ -207,10 +206,10 @@
     <p class="text-secondary mb-4 small">Executing all 7 testing and static analysis tools in an isolated workspace.</p>
     <div class="loading-steps" id="loadingSteps">
       <div class="loading-step" data-step="pytest"><i class="bi bi-clock me-2"></i>PyTest — Dynamic Testing</div>
-      <div class="loading-step" data-step="coverage"><i class="bi bi-clock me-2"></i>Coverage.py — Code Coverage</div>
-      <div class="loading-step" data-step="static"><i class="bi bi-clock me-2"></i>Flake8 + Pylint — Static Quality</div>
+      <div class="loading-step" data-step="flake8"><i class="bi bi-clock me-2"></i>Flake8 — Static Analysis</div>
+      <div class="loading-step" data-step="pylint"><i class="bi bi-clock me-2"></i>Pylint — Code Quality</div>
       <div class="loading-step" data-step="bandit"><i class="bi bi-clock me-2"></i>Bandit — Security Scan</div>
-      <div class="loading-step" data-step="style"><i class="bi bi-clock me-2"></i>Pycodestyle — PEP 8 Standards</div>
+      <div class="loading-step" data-step="pycode"><i class="bi bi-clock me-2"></i>Pycodestyle — PEP 8 Standards</div>
       <div class="loading-step" data-step="complexity"><i class="bi bi-clock me-2"></i>Radon — Cyclomatic Complexity</div>
       <div class="loading-step" data-step="predict"><i class="bi bi-clock me-2"></i>Defect Risk Prediction</div>
     </div>
@@ -293,16 +292,16 @@
         </div>
         <div class="col-6 col-xl-3">
           <div class="metric-card mini-metric shadow-sm">
-            <i class="bi bi-graph-up text-primary metric-icon"></i>
-            <div class="mini-value text-primary" id="metricStmtCov">—</div>
-            <div class="mini-label">Statement Cov</div>
+            <i class="bi bi-star-fill text-primary metric-icon"></i>
+            <div class="mini-value text-primary" id="metricPylint">—</div>
+            <div class="mini-label">Pylint Score</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
           <div class="metric-card mini-metric shadow-sm">
-            <i class="bi bi-git text-info metric-icon"></i>
-            <div class="mini-value text-info" id="metricBranchCov">—</div>
-            <div class="mini-label">Branch Cov</div>
+            <i class="bi bi-bug text-info metric-icon"></i>
+            <div class="mini-value text-info" id="metricTotalFindings">—</div>
+            <div class="mini-label">Total Findings</div>
           </div>
         </div>
         <div class="col-6 col-xl-3">
@@ -351,11 +350,11 @@
       <div class="card-modern shadow-sm h-100">
         <div class="card-header-modern">
           <i class="bi bi-bar-chart me-2 text-primary"></i>
-          <span class="fw-600 text-dark">Coverage & Complexity Profiles</span>
+          <span class="fw-600 text-dark">Findings & Complexity Profiles</span>
         </div>
         <div class="card-body p-3">
-          <div class="chart-subtitle text-muted small fw-600 mb-2">Coverage Metrics (%)</div>
-          <canvas id="coverageChart" width="300" height="130"></canvas>
+          <div class="chart-subtitle text-muted small fw-600 mb-2">Findings by Tool (Issues)</div>
+          <canvas id="toolFindingsChart" width="300" height="130"></canvas>
           <div class="mt-4">
             <div class="chart-subtitle text-muted small fw-600 mb-2">Complexity Distribution (Functions)</div>
             <canvas id="complexityDistChart" width="300" height="130"></canvas>
@@ -374,7 +373,7 @@
         </span>
         <div>
           <span class="fw-600 text-dark d-block">25 Core Test Criteria</span>
-          <span class="text-muted small">5 criteria evaluated per tool across dynamic, coverage, static, and security modules</span>
+          <span class="text-muted small">5 criteria evaluated per tool across PyTest, Flake8, Pylint, Bandit, and Pycodestyle</span>
         </div>
       </div>
       <div class="d-flex gap-2 flex-wrap">
@@ -462,7 +461,7 @@
 <footer class="app-footer text-center py-4 mt-5">
   <div class="container">
     <p class="mb-1 text-dark fw-600 small">Complex Code Testing Dashboard &mdash; 7th Semester Software Testing Project</p>
-    <p class="mb-0 text-muted small">Automated Testing Tools: PyTest &middot; Coverage.py &middot; Flake8 &middot; Pylint &middot; Bandit &middot; Pycodestyle &middot; Radon</p>
+    <p class="mb-0 text-muted small">Automated Testing Tools: PyTest &middot; Flake8 &middot; Pylint &middot; Bandit &middot; Pycodestyle &middot; Radon</p>
   </div>
 </footer>
 

@@ -13,7 +13,6 @@ from typing import Dict, Optional
 from backend.services.execution_service import create_workspace, cleanup_workspace
 from backend.analyzers import (
     pytest_analyzer,
-    coverage_analyzer,
     flake8_analyzer,
     pylint_analyzer,
     bandit_analyzer,
@@ -83,12 +82,10 @@ def _execute_analysis(
     workspace_dir: str,
     filename: str,
 ) -> Dict:
-    # --- Run all analyzers ---
-    # Dynamic tests and coverage run first to generate coverage metrics
+    # --- Run Dynamic Testing ---
     pytest_result = pytest_analyzer.analyze(workspace_dir, code_path, code)
-    coverage_result = coverage_analyzer.analyze(workspace_dir, code_path, code)
 
-    # Static analysis, linting, security scanning, and complexity run concurrently for speed
+    # --- Run Static analysis, linting, security scanning, standards, and complexity concurrently ---
     with ThreadPoolExecutor(max_workers=5) as executor:
         f_flake8 = executor.submit(flake8_analyzer.analyze, workspace_dir, code_path, code)
         f_pylint = executor.submit(pylint_analyzer.analyze, workspace_dir, code_path, code)
@@ -102,23 +99,22 @@ def _execute_analysis(
         pycodestyle_result = f_pycode.result()
         complexity_result = f_radon.result()
 
-    # --- Collect all 25 criteria ---
+    # --- Collect exactly 25 core criteria (5 per analyzer across 5 tools) ---
     all_criteria = (
         pytest_result["criteria"]          # 5
-        + coverage_result["criteria"]      # 5
         + flake8_result["criteria"]        # 5
         + pylint_result["criteria"]        # 5
         + bandit_result["criteria"]        # 5
+        + pycodestyle_result["criteria"]   # 5
     )
 
-    # --- Defect prediction ---
+    # --- Defect prediction (4 components: Security 35.3%, Complexity 29.4%, Static 23.5%, Style 11.8%) ---
     all_static = flake8_result.get("findings", []) + pylint_result.get("findings", [])
     all_style = pycodestyle_result.get("findings", [])
     prediction = predict_defects(
         complexity_data=complexity_result,
         security_findings=bandit_result.get("findings", []),
         static_findings=all_static,
-        coverage_metrics=coverage_result.get("metrics", {}),
         style_findings=all_style,
     )
 
@@ -140,18 +136,17 @@ def _execute_analysis(
         "code_lines": len(code.splitlines()),
         "code_chars": len(code),
 
-        # 25 criteria
+        # Exactly 25 core criteria categorized by tool
         "criteria": {
             "pytest": pytest_result["criteria"],
-            "coverage": coverage_result["criteria"],
             "flake8": flake8_result["criteria"],
             "pylint": pylint_result["criteria"],
             "bandit": bandit_result["criteria"],
+            "pycodestyle": pycodestyle_result["criteria"],
         },
         "all_criteria": all_criteria,
 
-        # Metrics
-        "coverage_metrics": coverage_result.get("metrics", {}),
+        # Metrics (Radon Complexity is separate module)
         "complexity": complexity_result,
         "defect_prediction": prediction,
 
@@ -162,9 +157,6 @@ def _execute_analysis(
             "bandit": bandit_result.get("findings", []),
             "pycodestyle": pycodestyle_result.get("findings", []),
         },
-
-        # Pycodestyle criteria (for reference but not in core 25)
-        "pycodestyle_criteria": pycodestyle_result.get("criteria", []),
 
         # Test metadata
         "pytest_meta": {

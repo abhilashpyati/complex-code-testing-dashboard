@@ -645,62 +645,121 @@ class TestBanditSeverityAndClassification:
             assert f['confidence'] in ('LOW', 'MEDIUM', 'HIGH')
 
 
-class TestPhase3ReliabilityAndCorrections:
-    """Phase 3 verification: Coverage reliability, dynamic test generation, and weight normalization."""
+class TestPhase4CoverageRemovalAndIntegration:
+    """Phase 4 verification: Complete removal of Coverage.py, exact 25 core criteria, 4-factor defect predictor."""
 
-    def test_branchless_code_coverage_and_report(self, client):
-        """Branchless code must report branch_coverage=None and CV-02/CV-04 as NOT_APPLICABLE."""
-        branchless = """
-def calculate_area(length: float, width: float) -> float:
-    \"\"\"Calculate rectangle area.\"\"\"
-    return length * width
-"""
-        resp = post_analyze(client, branchless, "area_calc.py")
+    def test_coverage_completely_removed_from_api(self, client):
+        """API must not return coverage_metrics or coverage criteria."""
+        resp = post_analyze(client, VALID_CODE, "valid_test.py")
         assert resp.status_code == 200
         data = resp.get_json()
 
-        cov = data.get("coverage_metrics", {})
-        assert cov.get("statement_coverage") is not None
-        assert cov.get("statement_coverage") > 0
-        assert cov.get("branch_coverage") is None
+        # coverage_metrics must not be present
+        assert "coverage_metrics" not in data
+        assert "coverage" not in data.get("criteria", {})
 
-        # Verify CV-02 and CV-04 criteria
-        criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
-        assert criteria_by_id["CV-02"]["status"] == "NOT_APPLICABLE"
-        assert "no conditional branches" in criteria_by_id["CV-02"]["details"].lower()
-        assert criteria_by_id["CV-04"]["status"] == "NOT_APPLICABLE"
+        # No criteria ID starting with CV-
+        crit_ids = [c["id"] for c in data.get("all_criteria", [])]
+        assert not any(cid.startswith("CV-") for cid in crit_ids), f"Found CV- criteria: {crit_ids}"
 
-        # Verify HTML report doesn't crash on None branch_coverage
-        analysis_id = data["analysis_id"]
-        report_resp = client.get(f"/api/report/{analysis_id}?format=html")
-        assert report_resp.status_code == 200
-        html = report_resp.data.decode()
-        assert "N/A" in html
-        assert "area_calc.py" in html
-
-    def test_branching_code_coverage(self, client):
-        """Code with branches must calculate both statement and branch coverage."""
-        branching = """
-def classify_number(n: int) -> str:
-    \"\"\"Classify a number.\"\"\"
-    if n > 0:
-        return 'positive'
-    elif n < 0:
-        return 'negative'
-    else:
-        return 'zero'
-"""
-        resp = post_analyze(client, branching, "classifier.py")
+    def test_exact_25_core_criteria_across_5_tools(self, client):
+        """Must return exactly 25 criteria across 5 analyzers (5 each)."""
+        resp = post_analyze(client, VALID_CODE, "test_25.py")
         assert resp.status_code == 200
         data = resp.get_json()
 
-        cov = data.get("coverage_metrics", {})
-        assert cov.get("statement_coverage") is not None
-        assert cov.get("branch_coverage") is not None
-        assert isinstance(cov.get("branch_coverage"), (int, float))
+        criteria_map = data.get("criteria", {})
+        expected_tools = ["pytest", "flake8", "pylint", "bandit", "pycodestyle"]
+        assert set(criteria_map.keys()) == set(expected_tools), f"Unexpected tools: {criteria_map.keys()}"
 
-        criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
-        assert criteria_by_id["CV-02"]["status"] in ("PASSED", "WARNING", "FAILED")
+        for tool_name in expected_tools:
+            crit_list = criteria_map[tool_name]
+            assert len(crit_list) == 5, f"Tool {tool_name} has {len(crit_list)} criteria instead of 5"
+
+        all_crit = data.get("all_criteria", [])
+        assert len(all_crit) == 25, f"Expected exactly 25 criteria, got {len(all_crit)}"
+
+        # Validate prefixes
+        expected_prefixes = {
+            "pytest": "PT-",
+            "flake8": "FL-",
+            "pylint": "PL-",
+            "bandit": "BD-",
+            "pycodestyle": "PC-",
+        }
+        for tool, prefix in expected_prefixes.items():
+            for c in criteria_map[tool]:
+                assert c["id"].startswith(prefix), f"Criterion {c['id']} does not match expected prefix {prefix}"
+
+    def test_radon_complexity_separate_from_criteria(self, client):
+        """Radon complexity must be returned as a separate module, not in the 25 core criteria."""
+        resp = post_analyze(client, VALID_CODE, "test_complexity.py")
+        assert resp.status_code == 200
+        data = resp.get_json()
+
+        assert "complexity" in data
+        assert "overall" in data["complexity"]
+        assert "functions" in data["complexity"]
+
+        # Ensure no complexity criterion in all_criteria
+        crit_names = [c["name"].lower() for c in data.get("all_criteria", [])]
+        assert not any("cyclomatic complexity" in name for name in crit_names)
+
+    def test_defect_predictor_weights_and_no_coverage(self):
+        """Defect predictor must use 4 components (no coverage) summing to 1.0 (100%)."""
+        from backend.prediction.defect_predictor import predict, WEIGHTS
+
+        # Verify configured weights
+        assert "coverage" not in WEIGHTS
+        assert set(WEIGHTS.keys()) == {"security", "complexity", "static_analysis", "style"}
+        total_weight = sum(WEIGHTS.values())
+        assert abs(total_weight - 1.0) < 0.001, f"Weights sum to {total_weight}, expected 1.0"
+
+        # Verify weights match spec: Security 35.3%, Complexity 29.4%, Static 23.5%, Style 11.8%
+        assert WEIGHTS["security"] == 0.353
+        assert WEIGHTS["complexity"] == 0.294
+        assert WEIGHTS["static_analysis"] == 0.235
+        assert WEIGHTS["style"] == 0.118
+
+        # Run prediction
+        complexity_data = {"overall": {"average": 2.5, "distribution": {"LOW": 2}}}
+        pred = predict(
+            complexity_data=complexity_data,
+            security_findings=[],
+            static_findings=[],
+            style_findings=[],
+        )
+        assert "score" in pred
+        assert 0 <= pred["score"] <= 100
+        assert "coverage" not in pred["components"]
+        assert set(pred["components"].keys()) == {"security", "complexity", "static_analysis", "style"}
+
+        # Verify methodology note disclaimer
+        note = pred["methodology_note"]
+        assert "heuristic estimate" in note
+        assert "security, complexity, static analysis, and coding-style metrics" in note
+        assert "coverage" not in note.lower()
+
+    def test_defect_predictor_dynamic_normalization_on_unavailable(self):
+        """Defect predictor normalizes weights dynamically when a component is unavailable."""
+        from backend.prediction.defect_predictor import predict
+
+        # Simulate missing complexity data
+        pred = predict(
+            complexity_data=None,
+            security_findings=[],
+            static_findings=[],
+            style_findings=[],
+        )
+        comp = pred["components"]["complexity"]
+        assert comp["status"] == "UNAVAILABLE"
+        assert comp["effective_weight"] == 0.0
+
+        # Available components effective weights must sum to 1.0
+        active_eff_weights = sum(
+            c["effective_weight"] for c in pred["components"].values() if c["status"] == "AVAILABLE"
+        )
+        assert abs(active_eff_weights - 1.0) < 0.001
 
     def test_parameterized_function_execution(self, client):
         """Dynamic PyTest runner must extract AST parameters and execute parameterized functions."""
@@ -716,31 +775,28 @@ def divide_safe(a: float, b: float) -> float:
         data = resp.get_json()
 
         criteria_by_id = {c["id"]: c for c in data.get("all_criteria", [])}
-        # PT-04: Function Execution Under Test must pass (not skip with TypeError)
         assert criteria_by_id["PT-04"]["status"] == "PASSED"
-        assert "passed successfully" in criteria_by_id["PT-04"]["details"].lower()
+        assert "successfully" in criteria_by_id["PT-04"]["details"].lower()
 
-    def test_defect_predictor_handles_missing_metrics(self):
-        """Defect predictor re-normalizes weights across available components when metrics are None."""
-        from backend.prediction.defect_predictor import predict
+    def test_reports_contain_no_coverage(self, client):
+        """JSON and HTML reports must not contain coverage artifacts."""
+        resp = post_analyze(client, VALID_CODE, "report_test.py")
+        assert resp.status_code == 200
+        aid = resp.get_json()["analysis_id"]
 
-        # Simulate missing coverage metrics (statement_coverage is None)
-        complexity_data = {"overall": {"average": 3.0, "distribution": {"LOW": 1}}}
-        pred = predict(
-            complexity_data=complexity_data,
-            security_findings=[],
-            static_findings=[],
-            coverage_metrics={"statement_coverage": None, "branch_coverage": None},
-            style_findings=[],
-        )
-        assert "score" in pred
-        assert 0 <= pred["score"] <= 100
-        # Coverage component must be UNAVAILABLE with score None
-        cov_comp = pred["components"]["coverage"]
-        assert cov_comp["status"] == "UNAVAILABLE"
-        assert cov_comp["score"] is None
-        assert cov_comp["effective_weight"] == 0.0
-        # Other components must have non-zero effective weights
-        assert pred["components"]["complexity"]["effective_weight"] > 0
-        assert pred["components"]["security"]["effective_weight"] > 0
+        # JSON report
+        json_resp = client.get(f"/api/report/{aid}?format=json")
+        assert json_resp.status_code == 200
+        json_body = json_resp.get_json()
+        assert "coverage_metrics" not in json_body
+        assert "coverage" not in json_body.get("criteria", {})
+
+        # HTML report
+        html_resp = client.get(f"/api/report/{aid}?format=html")
+        assert html_resp.status_code == 200
+        html_text = html_resp.data.decode()
+        assert "Statement Coverage" not in html_text
+        assert "Branch Coverage" not in html_text
+        assert "Coverage.py" not in html_text
+        assert "25 Core Test Criteria Evaluation" in html_text
 

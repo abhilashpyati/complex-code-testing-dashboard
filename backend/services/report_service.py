@@ -1,5 +1,6 @@
 """
 Report Service — generates JSON and HTML reports from analysis results.
+White-themed, comprehensive reporting without coverage dependencies.
 """
 import os
 import json
@@ -18,11 +19,11 @@ def generate_html_report(result: Dict) -> str:
     health = result.get("health_score", 0)
     summary = result.get("summary", {})
     prediction = result.get("defect_prediction", {})
-    coverage = result.get("coverage_metrics", {})
     complexity = result.get("complexity", {}).get("overall", {})
     timestamp = result.get("timestamp", datetime.now().isoformat())
     filename = html_lib.escape(result.get("filename", "user_code.py"))
     criteria_map = result.get("criteria", {})
+    pylint_score = result.get("pylint_score", -1)
 
     health_color = "#16a34a" if health >= 70 else "#d97706" if health >= 40 else "#dc2626"
     risk_category = prediction.get("category", "LOW")
@@ -33,17 +34,15 @@ def generate_html_report(result: Dict) -> str:
         "CRITICAL": "#dc2626",
     }.get(risk_category, "#64748b")
 
-    stmt_cov_val = coverage.get("statement_coverage")
-    stmt_cov_str = f"{stmt_cov_val:.1f}%" if stmt_cov_val is not None else "N/A"
-
-    branch_cov_val = coverage.get("branch_coverage")
-    branch_cov_str = f"{branch_cov_val:.1f}%" if branch_cov_val is not None else "N/A"
-
     avg_complexity_val = complexity.get("average")
     avg_complexity_str = f"{avg_complexity_val:.1f}" if avg_complexity_val is not None else "N/A"
 
+    pylint_score_str = f"{pylint_score:.1f}/10" if pylint_score >= 0 else "N/A"
+
     pred_score_val = prediction.get("score", 0)
     pred_score_str = f"{pred_score_val:.0f}/100" if pred_score_val is not None else "N/A"
+
+    total_findings_count = sum(len(f) for f in result.get("findings", {}).values())
 
     # Build criteria rows with safe HTML escaping
     criteria_rows = ""
@@ -76,8 +75,8 @@ def generate_html_report(result: Dict) -> str:
 
     findings_rows = ""
     for tool, findings in result.get("findings", {}).items():
-        for f in findings[:30]:
-            f_tool = html_lib.escape(str(tool))
+        for f in findings[:35]:
+            f_tool = html_lib.escape(str(tool).capitalize())
             f_code = html_lib.escape(str(f.get("code", "")))
             f_line = html_lib.escape(str(f.get("line", "")))
             f_msg = html_lib.escape(str(f.get("message", ""))[:300])
@@ -122,8 +121,8 @@ def generate_html_report(result: Dict) -> str:
         eff_wt = v.get("effective_weight", wt)
         if sc is not None:
             component_items.append(
-                f"<li><strong>{name}</strong>: score {sc:.1f} &times; weight {wt:.0%} "
-                f"(effective {eff_wt:.0%}) = <strong>{contrib:.1f} pts</strong></li>"
+                f"<li><strong>{name}</strong>: score {sc:.1f} &times; weight {wt:.1%} "
+                f"(effective {eff_wt:.1%}) = <strong>{contrib:.1f} pts</strong></li>"
             )
         else:
             component_items.append(
@@ -162,7 +161,7 @@ def generate_html_report(result: Dict) -> str:
   .header p {{ margin: 0.5rem 0 0; color: #64748b; font-size: 0.95rem; }}
   .metrics {{
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     gap: 1rem;
     margin-bottom: 2rem;
   }}
@@ -278,12 +277,12 @@ def generate_html_report(result: Dict) -> str:
     <div class="label">Failed</div>
   </div>
   <div class="metric-card">
-    <div class="value" style="color:#2563eb">{stmt_cov_str}</div>
-    <div class="label">Statement Coverage</div>
+    <div class="value" style="color:#2563eb">{pylint_score_str}</div>
+    <div class="label">Pylint Score</div>
   </div>
   <div class="metric-card">
-    <div class="value" style="color:#0284c7">{branch_cov_str}</div>
-    <div class="label">Branch Coverage</div>
+    <div class="value" style="color:#0284c7">{total_findings_count}</div>
+    <div class="label">Total Findings</div>
   </div>
   <div class="metric-card">
     <div class="value" style="color:#7c3aed">{avg_complexity_str}</div>
@@ -295,7 +294,7 @@ def generate_html_report(result: Dict) -> str:
   </div>
 </div>
 
-<h2>25 Test Criteria Evaluation</h2>
+<h2>25 Core Test Criteria Evaluation</h2>
 <table>
   <thead><tr><th>ID</th><th>Criterion</th><th>Tool</th><th>Status</th><th>Details</th><th>Recommendation</th></tr></thead>
   <tbody>{criteria_rows}</tbody>
@@ -307,7 +306,7 @@ def generate_html_report(result: Dict) -> str:
   <tbody>{findings_rows if findings_rows else '<tr><td colspan="5" style="text-align:center;color:#16a34a;padding:1.5rem;">No static or security issues found</td></tr>'}</tbody>
 </table>
 
-<h2>Cyclomatic Complexity & Functions</h2>
+<h2>Cyclomatic Complexity & Functions (Radon)</h2>
 <table>
   <thead><tr><th>Name</th><th>Type</th><th>Line</th><th>Complexity</th><th>Risk</th><th>Grade</th></tr></thead>
   <tbody>{high_risk if high_risk else '<tr><td colspan="6" style="text-align:center;color:#16a34a;padding:1.5rem;">No high-risk functions detected</td></tr>'}</tbody>

@@ -1,20 +1,40 @@
 # Complex Code Testing Dashboard
 
-A professional, fully automated Python code quality analysis dashboard for a 7th-semester Software Testing academic project.
+A professional, fully automated Python code quality and security analysis dashboard for a 7th-semester Software Testing academic project. Built with a clean, modern white-themed interface.
 
-## Features
+## Features & Analysis Architecture
 
-| Module | Tool | Description |
-|--------|------|-------------|
-| Dynamic Testing | PyTest | Automated test generation and execution |
-| Coverage Analysis | Coverage.py | Statement and branch coverage measurement |
-| Static Analysis | Flake8 + Pylint | Code smells, unused vars, naming issues |
-| Security Analysis | Bandit | eval/exec, hardcoded credentials, shell injection |
-| Coding Standards | Pycodestyle | PEP 8 compliance checking |
-| Complexity | Radon | McCabe Cyclomatic Complexity analysis |
-| Defect Prediction | Heuristic Engine | Rule-based defect risk scoring |
+The dashboard evaluates Python source code across **exactly 25 core test criteria** divided evenly (5 criteria each) across 5 primary analyzers, alongside an independent McCabe Cyclomatic Complexity module and a 4-factor heuristic Defect Risk Prediction engine.
 
-**25 test criteria** across 5 tools, plus cyclomatic complexity analysis and defect prediction.
+| Group | Analyzer | Category | Criteria IDs | Description |
+|---|---|---|---|---|
+| Group 1 | PyTest | Dynamic Testing | `PT-01` – `PT-05` | Test discovery, assertion validation, runtime error detection, function execution, boundary testing |
+| Group 2 | Flake8 | Static Analysis | `FL-01` – `FL-05` | Unused imports (F401), undefined names (F821), syntax issues (E999), wildcard imports (F403), general linting |
+| Group 3 | Pylint | Code Quality | `PL-01` – `PL-05` | Naming conventions (C0103), unused symbols (W0612), error detection (E/F), warnings & docstrings (W/C), overall score (≥7.0) |
+| Group 4 | Bandit | Security Analysis | `BD-01` – `BD-05` | Hardcoded credentials (B105), unsafe functions (eval/exec B307), weak crypto (B303), subprocess (B602), overall severity |
+| Group 5 | Pycodestyle | Coding Standards | `PC-01` – `PC-05` | Indentation (E1xx), line length ≤120 (E501), whitespace (E2xx), blank lines (E3xx), general PEP 8 compliance |
+
+### Independent Modules
+- **Radon Complexity Analysis**: Evaluates McCabe Cyclomatic Complexity per function/method, assigns letter grades (A–F), detects hotspots, and calculates distribution (LOW, MODERATE, HIGH, CRITICAL).
+- **Defect Risk Predictor**: Calculates a 0–100 heuristic risk score across 4 normalized dimensions with dynamic weight redistribution.
+
+---
+
+## Defect Risk Prediction Methodology
+
+The defect risk score (0–100) is a **heuristic estimate** based on static code metrics, vulnerability scanning, and complexity measures:
+
+| Component | Weight | Metric Source | Description |
+|---|---|---|---|
+| Security Findings | **35.3%** (`0.353`) | Bandit | Weighted count of HIGH (20 pts), MEDIUM (8 pts), and LOW (2 pts) vulnerabilities |
+| Cyclomatic Complexity | **29.4%** (`0.294`) | Radon | Average cyclomatic complexity and presence of high-complexity hotspots |
+| Static Code Analysis | **23.5%** (`0.235`) | Flake8 + Pylint | Syntax errors, undefined variables, naming violations, and code smells |
+| Coding Style Compliance | **11.8%** (`0.118`) | Pycodestyle | PEP 8 adherence, line length, whitespace, and formatting violations |
+| **Total** | **100.0%** (`1.000`) | | **Exact mathematical aggregate** |
+
+> **Disclaimer:** *Defect risk is a heuristic estimate based on security, complexity, static analysis, and coding-style metrics. It does not guarantee the presence or absence of defects.*
+
+---
 
 ## Local Setup
 
@@ -35,110 +55,78 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open http://localhost:5000 in your browser.
+Open [http://localhost:5000](http://localhost:5000) in your browser.
 
-## Running Tests
+---
+
+## Running the Automated Test Suite
 
 ```bash
 pytest tests/ -v --tb=short
 ```
 
+---
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/` | Dashboard UI |
-| GET | `/api/health` | Health check |
-| POST | `/api/analyze` | Submit code for analysis (JSON body) |
-| POST | `/api/analyze/upload` | Upload a `.py` file |
-| GET | `/api/results/<id>` | Retrieve analysis results |
-| GET | `/api/report/<id>?format=json` | Download JSON report |
-| GET | `/api/report/<id>?format=html` | Download HTML report |
-| GET | `/api/samples` | List sample programs |
+|---|---|---|
+| GET | `/` | Dashboard UI (White Theme) |
+| GET | `/api/health` | Service health check |
+| POST | `/api/analyze` | Submit Python code for synchronous analysis (`{ "code": "...", "filename": "..." }`) |
+| POST | `/api/analyze/upload` | Upload a `.py` file for analysis (`multipart/form-data`) |
+| GET | `/api/results/<analysis_id>` | Retrieve in-memory analysis results by ID |
+| GET | `/api/report/<analysis_id>?format=json` | Export JSON analysis report |
+| GET | `/api/report/<analysis_id>?format=html` | Download self-contained HTML analysis report |
+| GET | `/api/samples` | List preloaded sample programs (`bank_account`, `scientific_calculator`, `defective_code`) |
 
-### POST /api/analyze
-
-```json
-{
-  "code": "def add(a, b):\n    return a + b",
-  "filename": "my_code.py"
-}
-```
-
-## Deployment (Render)
-
-1. Push to GitHub
-2. Create a new **Web Service** on [render.com](https://render.com)
-3. Set **Build Command**: `pip install -r requirements.txt`
-4. Set **Start Command**: `gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120`
-5. Add environment variable `SECRET_KEY` with a secure random value
-
-### ⚠️ Security Limitation
-
-Submitted code is executed in an isolated subprocess with timeout restrictions. Full OS-level sandboxing (seccomp, containers) is **not** available on standard Render free-tier deployments. Do **not** expose this service publicly without additional security measures. For production use, consider:
-
-- Running the application inside a Docker container with restricted capabilities
-- Using a dedicated sandboxed execution environment (e.g., AWS Lambda, Firecracker)
-- Adding authentication before the analysis endpoint
+---
 
 ## Project Structure
 
 ```
 complex-code-test-dashboard/
-├── app.py                      # Flask entry point
-├── config.py                   # Configuration constants
-├── requirements.txt
-├── Procfile
-├── render.yaml
+├── app.py                      # Flask entry point & CORS configuration
+├── config.py                   # Global configuration & defect prediction weights
+├── requirements.txt            # Python dependencies (coverage removed)
+├── Procfile                    # Render web deployment command
+├── render.yaml                 # Render blueprint
 ├── backend/
 │   ├── routes/
-│   │   ├── analysis_routes.py  # POST /api/analyze, GET /api/results
-│   │   └── report_routes.py    # GET /api/report/<id>
+│   │   ├── analysis_routes.py  # Analysis endpoints & sample loader
+│   │   └── report_routes.py    # JSON & HTML report download routes
 │   ├── analyzers/
-│   │   ├── pytest_analyzer.py
-│   │   ├── coverage_analyzer.py
-│   │   ├── flake8_analyzer.py
-│   │   ├── pylint_analyzer.py
-│   │   ├── bandit_analyzer.py
-│   │   └── pycodestyle_analyzer.py
+│   │   ├── pytest_analyzer.py      # Group 1: Dynamic testing (PT-01 to PT-05)
+│   │   ├── flake8_analyzer.py      # Group 2: Static analysis (FL-01 to FL-05)
+│   │   ├── pylint_analyzer.py      # Group 3: Code quality (PL-01 to PL-05)
+│   │   ├── bandit_analyzer.py      # Group 4: Security vulnerabilities (BD-01 to BD-05)
+│   │   └── pycodestyle_analyzer.py # Group 5: PEP 8 standards (PC-01 to PC-05)
 │   ├── complexity/
-│   │   └── complexity_analyzer.py   # Radon
+│   │   └── complexity_analyzer.py  # Independent Radon complexity module
 │   ├── prediction/
-│   │   └── defect_predictor.py      # Heuristic engine
+│   │   └── defect_predictor.py     # 4-factor heuristic defect predictor
 │   ├── services/
-│   │   ├── analysis_service.py      # Orchestration
-│   │   ├── execution_service.py     # Safe subprocess runner
-│   │   └── report_service.py        # JSON/HTML report generator
+│   │   ├── analysis_service.py     # Orchestration & thread-safe in-memory store
+│   │   ├── execution_service.py    # Isolated workspace & safe tool runner
+│   │   └── report_service.py       # JSON/HTML report generators (white theme)
 │   └── utils/
-│       ├── validators.py
-│       └── result_formatter.py
+│       ├── validators.py           # AST syntax checking & input limits
+│       └── result_formatter.py     # Criteria formatting & health score
 ├── templates/
-│   └── index.html
+│   └── index.html              # White-themed dashboard UI
 ├── static/
-│   ├── css/dashboard.css
-│   ├── js/dashboard.js
+│   ├── css/dashboard.css       # Clean light styling & modern cards
+│   ├── js/dashboard.js         # Reactive CodeMirror editor, Chart.js graphs, accordion
 │   └── samples/
-│       ├── scientific_calculator.py
-│       ├── bank_account.py
-│       └── defective_code.py
+│       ├── scientific_calculator.py  # Fully documented math operations
+│       ├── bank_account.py           # Fully documented banking transactions & loans
+│       └── defective_code.py         # Known defect & security vulnerability sample
 └── tests/
-    └── test_integration.py     # 15 test scenarios
+    └── test_integration.py     # Integration test suite validating all scenarios
 ```
 
-## Defect Prediction Methodology
-
-The defect risk score (0–100) is a **heuristic estimate**, not a machine-learning probability.
-
-| Component | Weight | Description |
-|-----------|--------|-------------|
-| Security findings | 30% | Bandit HIGH/MEDIUM findings |
-| Cyclomatic complexity | 25% | Average function complexity |
-| Static analysis | 20% | Flake8 + Pylint findings count |
-| Coverage deficit | 15% | 100% − average coverage |
-| Style violations | 10% | Pycodestyle violation count |
-
-Risk categories: LOW (0–24) · MODERATE (25–49) · HIGH (50–74) · CRITICAL (75–100)
+---
 
 ## Academic Note
 
-This project is submitted as a 7th-semester Software Testing coursework project. All tool integrations use real execution (subprocess calls to installed tools); no results are fabricated or hardcoded.
+This project is submitted as a 7th-semester Software Testing coursework project. All tool integrations invoke actual command-line static analysis and dynamic testing utilities in isolated temporary environments; no analysis findings or scores are fabricated.

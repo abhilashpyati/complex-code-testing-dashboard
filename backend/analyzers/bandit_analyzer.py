@@ -1,12 +1,12 @@
 """
-Bandit Security Analyzer — Module 5: Security Analysis.
+Bandit Security Analyzer — Security Vulnerability Analysis (Group 4 of 25 Core Criteria).
 
 Five criteria:
-1. No Use of eval() / exec() (B307/B102)
-2. No Weak Cryptographic Algorithms (B303/B304/B305/B324)
-3. No Hardcoded Credentials (B105/B106/B107)
-4. No Insecure Subprocess / Shell Injection (B602/B603/B604/B605)
-5. No Other High-Severity Security Findings
+1. BD-01: Hardcoded Credentials and Sensitive Information (B105/B106/B107/B108)
+2. BD-02: Unsafe Function Usage (B307/B102 eval/exec)
+3. BD-03: Weak Cryptographic Practices (B303/B304/B305/B324)
+4. BD-04: Insecure Subprocess Usage (B602/B603/B604/B605)
+5. BD-05: Overall Security Findings and Severity
 """
 import os
 import json
@@ -85,7 +85,7 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
         if not matched:
             return make_criterion(
                 crit_id, name, "PASSED",
-                f"No {name} issues detected",
+                f"No {name.lower()} issues detected",
                 TOOL, recommendation=recommendation,
             )
         severity_map = {"HIGH": "FAILED", "MEDIUM": "WARNING", "LOW": "WARNING"}
@@ -106,80 +106,85 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
             recommendation=recommendation,
         )
 
+    # Criterion 1: BD-01 Hardcoded Credentials and Sensitive Information
     criteria.append(_make(
-        "BD-01", "No eval() / exec() Usage",
-        ["B307", "B102", "B308"],
-        "Replace eval/exec with safe alternatives (ast.literal_eval, explicit parsing)",
-    ))
-    criteria.append(_make(
-        "BD-02", "No Weak Cryptographic Algorithms",
-        ["B303", "B304", "B305", "B324", "B413"],
-        "Use SHA-256 or stronger; avoid MD5, SHA-1, DES, RC4",
-    ))
-    criteria.append(_make(
-        "BD-03", "No Hardcoded Credentials",
+        "BD-01", "Hardcoded Credentials and Sensitive Information",
         ["B105", "B106", "B107", "B108"],
         "Use environment variables or secret managers for credentials",
     ))
+
+    # Criterion 2: BD-02 Unsafe Function Usage (eval/exec)
     criteria.append(_make(
-        "BD-04", "No Insecure Subprocess / Shell Injection",
+        "BD-02", "Unsafe Function Usage (eval/exec)",
+        ["B307", "B102", "B308"],
+        "Replace eval/exec with safe alternatives (ast.literal_eval, explicit parsing)",
+    ))
+
+    # Criterion 3: BD-03 Weak Cryptographic Practices
+    criteria.append(_make(
+        "BD-03", "Weak Cryptographic Practices",
+        ["B303", "B304", "B305", "B324", "B413"],
+        "Use SHA-256 or stronger; avoid MD5, SHA-1, DES, RC4",
+    ))
+
+    # Criterion 4: BD-04 Insecure Subprocess Usage
+    criteria.append(_make(
+        "BD-04", "Insecure Subprocess Usage",
         ["B602", "B603", "B604", "B605", "B606", "B607"],
         "Avoid shell=True; use argument lists and validate inputs",
     ))
 
-    # Criterion 5: Any remaining HIGH severity findings
+    # Criterion 5: BD-05 Overall Security Findings and Severity
     if tool_missing:
         criteria.append(make_criterion(
-            "BD-05", "No Other High-Severity Findings",
+            "BD-05", "Overall Security Findings and Severity",
             "NOT_EXECUTED",
             "Bandit not available",
             TOOL,
+            recommendation="Run Bandit security scanner regularly",
         ))
     else:
-        known_codes = {
-            "B307", "B102", "B308",
-            "B303", "B304", "B305", "B324", "B413",
-            "B105", "B106", "B107", "B108",
-            "B602", "B603", "B604", "B605", "B606", "B607",
-        }
-        other_high = [
-            f for f in findings
-            if f["code"] not in known_codes and f["severity"] == "HIGH"
-        ]
-        other_medium = [
-            f for f in findings
-            if f["code"] not in known_codes and f["severity"] == "MEDIUM"
-        ]
-        if not other_high and not other_medium:
+        high_sev = [f for f in findings if f["severity"] == "HIGH"]
+        med_sev = [f for f in findings if f["severity"] == "MEDIUM"]
+        low_sev = [f for f in findings if f["severity"] == "LOW"]
+
+        if not findings:
             criteria.append(make_criterion(
-                "BD-05", "No Other High-Severity Findings",
+                "BD-05", "Overall Security Findings and Severity",
                 "PASSED",
-                "No additional high-severity security issues detected",
+                "No security vulnerabilities or warnings detected across any severity levels",
                 TOOL,
-                recommendation="Run Bandit regularly as part of CI/CD",
+                recommendation="Continue maintaining secure coding practices",
             ))
-        elif other_high:
-            detail = "; ".join(
-                f"Line {f['line']}: [{f['code']}] {f['message']}" for f in other_high[:4]
-            )
+        elif high_sev:
             criteria.append(make_criterion(
-                "BD-05", "No Other High-Severity Findings",
+                "BD-05", "Overall Security Findings and Severity",
                 "FAILED",
-                f"{len(other_high)} high-severity finding(s): {detail}",
+                f"{len(high_sev)} HIGH severity, {len(med_sev)} MEDIUM, {len(low_sev)} LOW security finding(s): "
+                + "; ".join(f"Line {f['line']}: [{f['code']}] {f['message']}" for f in high_sev[:3]),
                 TOOL,
-                line=other_high[0]["line"],
-                recommendation="Address all HIGH severity Bandit findings before deployment",
+                line=high_sev[0]["line"] if high_sev else 0,
+                recommendation="Immediately remediate all HIGH severity security vulnerabilities",
+            ))
+        elif med_sev:
+            criteria.append(make_criterion(
+                "BD-05", "Overall Security Findings and Severity",
+                "WARNING",
+                f"{len(med_sev)} MEDIUM severity, {len(low_sev)} LOW security finding(s): "
+                + "; ".join(f"Line {f['line']}: [{f['code']}] {f['message']}" for f in med_sev[:3]),
+                TOOL,
+                line=med_sev[0]["line"] if med_sev else 0,
+                recommendation="Review and address MEDIUM severity security findings",
             ))
         else:
-            detail = "; ".join(
-                f"Line {f['line']}: [{f['code']}] {f['message']}" for f in other_medium[:4]
-            )
             criteria.append(make_criterion(
-                "BD-05", "No Other High-Severity Findings",
+                "BD-05", "Overall Security Findings and Severity",
                 "WARNING",
-                f"{len(other_medium)} medium-severity finding(s): {detail}",
+                f"{len(low_sev)} LOW severity security advisory finding(s): "
+                + "; ".join(f"Line {f['line']}: [{f['code']}] {f['message']}" for f in low_sev[:3]),
                 TOOL,
-                recommendation="Review and address medium-severity security findings",
+                line=low_sev[0]["line"] if low_sev else 0,
+                recommendation="Review low-severity findings for defense-in-depth hardening",
             ))
 
     return criteria

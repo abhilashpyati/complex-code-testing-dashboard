@@ -1,12 +1,12 @@
 """
-Pycodestyle Analyzer — Module 6: Coding Standards (PEP 8).
+Pycodestyle Analyzer — Coding Standards Analysis (Group 5 of 25 Core Criteria).
 
 Five criteria:
-1. Indentation Compliance (E1xx)
-2. Line Length Compliance (E501)
-3. Whitespace Compliance (E2xx)
-4. Blank Line Compliance (E3xx)
-5. Import / Statement Compliance (E4xx/W6xx)
+1. PC-01: Indentation and Formatting (E1xx)
+2. PC-02: Line Length Compliance (E501)
+3. PC-03: Whitespace Usage (E2xx)
+4. PC-04: Blank Line Conventions (E3xx/W3xx)
+5. PC-05: General PEP 8 Style Compliance (E4xx/W6xx/E7xx)
 """
 import os
 import re
@@ -63,10 +63,10 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
                 f"Pycodestyle not available: {result.get('error', 'timeout')}",
                 TOOL, recommendation=recommendation,
             )
-        matched = [f for f in findings if f["code"][:2] in prefixes or f["code"][:3] in prefixes]
+        matched = [f for f in findings if any(f["code"].startswith(p) for p in prefixes)]
         if not matched:
             status = "PASSED"
-            detail = f"No {name} violations"
+            detail = f"No {name} violations detected"
         elif len(matched) <= threshold:
             status = "WARNING"
             detail = f"{len(matched)} minor violation(s)"
@@ -84,35 +84,44 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
             recommendation=recommendation,
         )
 
+    # PC-01: Indentation and Formatting (E1xx)
     criteria.append(_make(
-        "PC-01", "Indentation Compliance (E1xx)",
+        "PC-01", "Indentation and Formatting (E1xx)",
         ["E1"],
         threshold=0,
-        recommendation="Use 4 spaces per indentation level (PEP 8 E1xx)",
+        recommendation="Use 4 spaces per indentation level conforming to PEP 8 (E1xx)",
     ))
+
+    # PC-02: Line Length Compliance (E501)
     criteria.append(_make(
-        "PC-02", "Line Length ≤ 120 Characters (E501)",
-        ["E5"],
-        threshold=5,
-        recommendation="Keep lines ≤ 120 characters; break long lines",
+        "PC-02", "Line Length Compliance (E501)",
+        ["E501", "E502"],
+        threshold=3,
+        recommendation="Keep line lengths within 120 characters; wrap lines where necessary",
     ))
+
+    # PC-03: Whitespace Usage (E2xx)
     criteria.append(_make(
-        "PC-03", "Whitespace Compliance (E2xx)",
+        "PC-03", "Whitespace Usage (E2xx)",
         ["E2"],
         threshold=3,
-        recommendation="Fix spacing around operators, commas, and brackets",
+        recommendation="Follow standard whitespace conventions around operators, commas, and colons",
     ))
+
+    # PC-04: Blank Line Conventions (E3xx/W3xx)
     criteria.append(_make(
-        "PC-04", "Blank Line Compliance (E3xx)",
+        "PC-04", "Blank Line Conventions (E3xx/W3xx)",
         ["E3", "W3"],
         threshold=2,
-        recommendation="Surround top-level definitions with 2 blank lines",
+        recommendation="Use 2 blank lines between top-level functions/classes and 1 inside classes",
     ))
+
+    # PC-05: General PEP 8 Style Compliance (E4xx/W6xx/E7xx)
     criteria.append(_make(
-        "PC-05", "Import / Statement Compliance (E4xx/W6xx)",
-        ["E4", "W6"],
+        "PC-05", "General PEP 8 Style Compliance (E4xx/W6xx/E7xx)",
+        ["E4", "E7", "W6", "E9"],
         threshold=1,
-        recommendation="Place imports at top of file; one import per line",
+        recommendation="Follow general PEP 8 style rules regarding imports, statements, and comparisons",
     ))
 
     return criteria

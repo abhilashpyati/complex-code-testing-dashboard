@@ -1,12 +1,12 @@
 """
-Flake8 Analyzer — Module 4 (part 1): Static Code Analysis.
+Flake8 Analyzer — Static Code Analysis (Group 2 of 25 Core Criteria).
 
 Five criteria:
-1. No Unused Imports (F401)
-2. No Undefined Variables / Syntax Errors (F821/E999)
-3. No Wildcard Imports (F403/F405)
-4. No Bare Except Clauses (E722)
-5. No Ambiguous Variable Names or Redefined Symbols (E741/F811)
+1. FL-01: Unused Imports (F401)
+2. FL-02: Undefined Names (F821)
+3. FL-03: Syntax and Parsing Issues (E999, E901, E902)
+4. FL-04: Wildcard Import Usage (F403, F405)
+5. FL-05: General Linting and Code Quality Issues (E722, E741, F811, F841, etc.)
 """
 import os
 import re
@@ -68,24 +68,23 @@ def _parse_findings(result: Dict) -> List[Dict]:
 def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
     criteria = []
 
-    # Determine tool availability
     tool_missing = (
         result.get("error") and "not found" in str(result.get("error", "")).lower()
     ) or result.get("timed_out")
 
-    def _criterion(crit_id, name, codes, recommendation):
+    def _criterion(crit_id, name, codes, recommendation, default_severity="WARNING"):
         if tool_missing:
             return make_criterion(crit_id, name, "NOT_EXECUTED",
                                   f"Flake8 not available: {result.get('error', 'timeout')}",
                                   TOOL, recommendation=recommendation)
-        matched = [f for f in findings if f["code"].startswith(tuple(codes))]
+        matched = [f for f in findings if f["code"] in codes or any(f["code"].startswith(c) for c in codes)]
         if not matched:
             return make_criterion(
                 crit_id, name, "PASSED",
-                f"No violations found (checked codes: {', '.join(codes)})",
+                f"No violations detected ({', '.join(codes)})",
                 TOOL, recommendation=recommendation,
             )
-        severity = "FAILED" if any(f["code"].startswith("F") for f in matched) else "WARNING"
+        severity = "FAILED" if any(f["code"].startswith(("E9", "F821", "F822", "F823")) for f in matched) or default_severity == "FAILED" else "WARNING"
         details = "; ".join(
             f"Line {f['line']}: {f['code']} — {f['message']}"
             for f in matched[:5]
@@ -98,52 +97,68 @@ def _build_criteria(result: Dict, findings: List[Dict]) -> List[Dict]:
             recommendation=recommendation,
         )
 
+    # Criterion 1: FL-01 - Unused Imports
     criteria.append(_criterion(
-        "FL-01", "No Unused Imports (F401)",
+        "FL-01", "Unused Imports (F401)",
         ["F401"],
         "Remove unused import statements to keep the namespace clean",
-    ))
-    criteria.append(_criterion(
-        "FL-02", "No Undefined Variables / Syntax Errors (F821/E999)",
-        ["F821", "E999", "E901", "E902"],
-        "Ensure all variables are defined before use and syntax is valid",
-    ))
-    criteria.append(_criterion(
-        "FL-03", "No Wildcard Imports (F403/F405)",
-        ["F403", "F405"],
-        "Replace 'from module import *' with explicit imports",
-    ))
-    criteria.append(_criterion(
-        "FL-04", "No Bare Except Clauses (E722)",
-        ["E722"],
-        "Use specific exception types instead of bare except",
+        default_severity="WARNING",
     ))
 
-    # Criterion 5: Ambiguous variable names or redefinitions
+    # Criterion 2: FL-02 - Undefined Names
+    criteria.append(_criterion(
+        "FL-02", "Undefined Names (F821)",
+        ["F821", "F822", "F823"],
+        "Ensure all variables and names are defined before use",
+        default_severity="FAILED",
+    ))
+
+    # Criterion 3: FL-03 - Syntax and Parsing Issues
+    criteria.append(_criterion(
+        "FL-03", "Syntax and Parsing Issues (E999/E901/E902)",
+        ["E999", "E901", "E902"],
+        "Correct Python syntax errors to ensure valid compilation",
+        default_severity="FAILED",
+    ))
+
+    # Criterion 4: FL-04 - Wildcard Import Usage
+    criteria.append(_criterion(
+        "FL-04", "Wildcard Import Usage (F403/F405)",
+        ["F403", "F405"],
+        "Replace 'from module import *' with explicit imports to prevent namespace pollution",
+        default_severity="WARNING",
+    ))
+
+    # Criterion 5: FL-05 - General Linting and Code Quality Issues
     if tool_missing:
         criteria.append(make_criterion(
-            "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
+            "FL-05", "General Linting and Code Quality Issues",
             "NOT_EXECUTED",
-            f"Flake8 not available", TOOL,
+            "Flake8 not available", TOOL,
         ))
     else:
-        matched = [f for f in findings if f["code"] in ("E741", "F811", "A001", "A002", "W0622")]
+        # Match other flake8 issues like bare except (E722), ambiguous name (E741), redefinition (F811), unused var (F841)
+        excluded_codes = {"F401", "F821", "F822", "F823", "E999", "E901", "E902", "F403", "F405"}
+        matched = [f for f in findings if f["code"] not in excluded_codes]
         if not matched:
             criteria.append(make_criterion(
-                "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
+                "FL-05", "General Linting and Code Quality Issues",
                 "PASSED",
-                "No ambiguous variable names or symbol redefinitions detected",
+                "No general linting issues or code quality anomalies detected",
                 TOOL,
-                recommendation="Avoid ambiguous single-letter names (l, O, I) and variable redefinitions",
+                recommendation="Maintain clean coding standards",
             ))
         else:
+            has_fatal = any(f["code"].startswith(("F", "E9")) for f in matched)
+            severity = "FAILED" if has_fatal else "WARNING"
             criteria.append(make_criterion(
-                "FL-05", "No Ambiguous Variable Names or Redefined Symbols (E741/F811)",
-                "WARNING",
-                f"{len(matched)} ambiguous name / redefinition violation(s): "
-                + "; ".join(f"Line {f['line']}: {f['message']}" for f in matched[:3]),
+                "FL-05", "General Linting and Code Quality Issues",
+                severity,
+                f"{len(matched)} general linting issue(s): "
+                + "; ".join(f"Line {f['line']}: {f['code']} — {f['message']}" for f in matched[:4]),
                 TOOL,
-                recommendation="Rename ambiguous single-letter names and avoid redefining symbols",
+                line=matched[0]["line"] if matched else 0,
+                recommendation="Address general linting issues such as bare except clauses, unused variables, and ambiguous symbols",
             ))
 
     return criteria

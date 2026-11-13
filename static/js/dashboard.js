@@ -237,16 +237,17 @@ function renderHealthScore(data) {
 /* Metric Cards */
 function renderMetrics(data) {
   const s = data.summary || {};
-  const cov = data.coverage_metrics || {};
   const cx = (data.complexity || {}).overall || {};
   const pred = data.defect_prediction || {};
+  const findings = data.findings || {};
+  const totalFindings = Object.values(findings).reduce((sum, arr) => sum + (arr?.length || 0), 0);
 
   setText('metricPassed', s.PASSED ?? '—');
   setText('metricWarning', s.WARNING ?? '—');
   setText('metricFailed', s.FAILED ?? '—');
   setText('metricNotExec', s.NOT_EXECUTED ?? '—');
-  setText('metricStmtCov', cov.statement_coverage != null ? cov.statement_coverage.toFixed(1) + '%' : '—');
-  setText('metricBranchCov', cov.branch_coverage != null ? cov.branch_coverage.toFixed(1) + '%' : '—');
+  setText('metricPylint', data.pylint_score >= 0 ? data.pylint_score.toFixed(1) + '/10' : '—');
+  setText('metricTotalFindings', totalFindings);
   setText('metricComplexity', cx.average != null ? cx.average.toFixed(1) : '—');
   setText('metricRisk', pred.category || '—');
 }
@@ -256,27 +257,33 @@ function renderCharts(data) {
   destroyCharts();
 
   const s = data.summary || {};
-  const cov = data.coverage_metrics || {};
   const cx = (data.complexity || {}).overall || {};
   const findings = data.findings || {};
 
-  // 1. Radar Chart
+  // 1. Radar Chart (6 Quality Dimensions: Test Pass, Flake8, Pylint, Bandit, Pycodestyle, Complexity)
   const radar = document.getElementById('radarChart').getContext('2d');
-  const stmtCov = cov.statement_coverage != null ? cov.statement_coverage : 0;
-  const branchCov = cov.branch_coverage != null ? cov.branch_coverage : stmtCov;
   const totalCrit = (data.all_criteria || []).length || 25;
   const passRate = totalCrit > 0 ? ((s.PASSED || 0) / totalCrit) * 100 : 0;
-  const noSecurity = Math.max(0, 100 - ((data.findings?.bandit?.length || 0) * 15));
-  const noStatic = Math.max(0, 100 - (((findings.flake8?.length || 0) + (findings.pylint?.length || 0)) * 5));
+  const flake8Score = Math.max(0, 100 - ((findings.flake8?.length || 0) * 10));
+  const pylintScore = data.pylint_score >= 0 ? Math.min(100, Math.max(0, data.pylint_score * 10)) : 70;
+  const banditScore = Math.max(0, 100 - ((findings.bandit?.length || 0) * 20));
+  const pycodeScore = Math.max(0, 100 - ((findings.pycodestyle?.length || 0) * 8));
   const complexScore = Math.max(0, 100 - Math.min(100, (cx.average || 1) * 8));
 
   charts.radar = new Chart(radar, {
     type: 'radar',
     data: {
-      labels: ['Test Pass Rate', 'Statement Coverage', 'Branch Coverage', 'Security', 'Static Quality', 'Complexity'],
+      labels: [
+        'Test Pass Rate',
+        'Flake8 Quality',
+        'Pylint Score',
+        'Bandit Security',
+        'PEP 8 Standards',
+        'Radon Complexity',
+      ],
       datasets: [{
-        label: 'Code Quality Score',
-        data: [passRate, stmtCov, branchCov, noSecurity, noStatic, complexScore],
+        label: 'Quality Index',
+        data: [passRate, flake8Score, pylintScore, banditScore, pycodeScore, complexScore],
         backgroundColor: 'rgba(37,99,235,.12)',
         borderColor: '#2563eb',
         pointBackgroundColor: '#2563eb',
@@ -339,17 +346,27 @@ function renderCharts(data) {
     },
   });
 
-  // 3. Coverage Bar
-  const covCtx = document.getElementById('coverageChart').getContext('2d');
-  charts.coverage = new Chart(covCtx, {
+  // 3. Tool Findings Bar Chart
+  const findingsCtx = document.getElementById('toolFindingsChart').getContext('2d');
+  const flCount = findings.flake8?.length || 0;
+  const plCount = findings.pylint?.length || 0;
+  const bdCount = findings.bandit?.length || 0;
+  const pcCount = findings.pycodestyle?.length || 0;
+
+  charts.toolFindings = new Chart(findingsCtx, {
     type: 'bar',
     data: {
-      labels: ['Statement Coverage', 'Branch Coverage'],
+      labels: ['Flake8', 'Pylint', 'Bandit', 'Pycodestyle'],
       datasets: [{
-        label: '%',
-        data: [stmtCov, branchCov],
-        backgroundColor: ['rgba(37,99,235,.8)', 'rgba(2,132,199,.8)'],
-        borderColor: ['#2563eb', '#0284c7'],
+        label: 'Issues',
+        data: [flCount, plCount, bdCount, pcCount],
+        backgroundColor: [
+          'rgba(37,99,235,.8)',
+          'rgba(2,132,199,.8)',
+          'rgba(220,38,38,.8)',
+          'rgba(124,58,237,.8)',
+        ],
+        borderColor: ['#2563eb', '#0284c7', '#dc2626', '#7c3aed'],
         borderWidth: 1,
         borderRadius: 6,
       }],
@@ -358,7 +375,7 @@ function renderCharts(data) {
       responsive: true,
       indexAxis: 'y',
       scales: {
-        x: { max: 100, ticks: { color: '#64748b', callback: v => v + '%' }, grid: { color: '#f1f5f9' } },
+        x: { beginAtZero: true, ticks: { color: '#64748b', precision: 0 }, grid: { color: '#f1f5f9' } },
         y: { ticks: { color: '#334155', font: { family: 'Inter', size: 11, weight: 600 } }, grid: { display: false } },
       },
       plugins: { legend: { display: false } },
@@ -397,11 +414,11 @@ function destroyCharts() {
 
 /* ─── 25 CRITERIA ─── */
 const TOOL_CONFIG = [
-  { key: 'pytest',   label: 'PyTest',           icon: 'bi-play-circle',          prefix: 'PT' },
-  { key: 'coverage', label: 'Coverage.py',       icon: 'bi-graph-up',             prefix: 'CV' },
-  { key: 'flake8',   label: 'Flake8',            icon: 'bi-search',               prefix: 'FL' },
-  { key: 'pylint',   label: 'Pylint',            icon: 'bi-clipboard2-check',     prefix: 'PL' },
-  { key: 'bandit',   label: 'Bandit',            icon: 'bi-shield-lock',          prefix: 'BD' },
+  { key: 'pytest',      label: 'PyTest (Dynamic Testing)',          icon: 'bi-play-circle',          prefix: 'PT' },
+  { key: 'flake8',      label: 'Flake8 (Static Analysis)',          icon: 'bi-search',               prefix: 'FL' },
+  { key: 'pylint',      label: 'Pylint (Code Quality)',             icon: 'bi-clipboard2-check',     prefix: 'PL' },
+  { key: 'bandit',      label: 'Bandit (Security Analysis)',        icon: 'bi-shield-lock',          prefix: 'BD' },
+  { key: 'pycodestyle', label: 'Pycodestyle (Coding Standards)',    icon: 'bi-card-checklist',       prefix: 'PC' },
 ];
 
 function renderCriteria(data) {
@@ -747,7 +764,7 @@ function setNavStatus(msg, type) {
   }
 }
 
-const LOADING_STEPS = ['pytest', 'coverage', 'static', 'bandit', 'style', 'complexity', 'predict'];
+const LOADING_STEPS = ['pytest', 'flake8', 'pylint', 'bandit', 'pycode', 'complexity', 'predict'];
 
 function showLoadingOverlay() {
   const overlay = document.getElementById('loadingOverlay');
